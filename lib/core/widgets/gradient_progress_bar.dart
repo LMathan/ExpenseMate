@@ -19,7 +19,8 @@ class GradientProgressBar extends StatelessWidget {
     final isExceeded = progress > 1.0;
     final isWarning = progress > 0.8 && progress <= 1.0;
 
-    List<Color> colors = gradientColors ?? [AppColors.primaryPurple, AppColors.electricBlue];
+    List<Color> colors =
+        gradientColors ?? [AppColors.primaryPurple, AppColors.electricBlue];
     if (isExceeded) {
       colors = [AppColors.accentPink, Colors.redAccent];
     } else if (isWarning) {
@@ -38,8 +39,8 @@ class GradientProgressBar extends StatelessWidget {
               width: totalWidth,
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white.withOpacity(0.08)
-                    : Colors.black.withOpacity(0.05),
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(height / 2),
               ),
             ),
@@ -57,7 +58,7 @@ class GradientProgressBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(height / 2),
                 boxShadow: [
                   BoxShadow(
-                    color: colors.first.withOpacity(0.4),
+                    color: colors.first.withValues(alpha: 0.4),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),

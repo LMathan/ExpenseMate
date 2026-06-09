@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:espenseai/core/constants/colors.dart';
 import 'package:espenseai/core/services/biometric_service.dart';
 import 'package:espenseai/core/services/voice_service.dart';
@@ -126,10 +127,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.lock_outline_rounded, size: 80, color: AppColors.primaryPurple),
+              Image.asset(
+                'assets/images/logo.png',
+                height: 100,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 24),
               const Text(
-                'ExpenseAI secure Vault',
+                'ExpenseAI Secure Vault',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const SizedBox(height: 8),
@@ -154,6 +159,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
+      appBar: _currentIndex == 0
+          ? null
+          : AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: Row(
+                children: [
+                  Image.asset(
+                    'assets/images/app_icon.png',
+                    height: 32,
+                    width: 32,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'ExpenseAI',
+                    style: GoogleFonts.outfit(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
       body: Stack(
         children: [
           Positioned.fill(

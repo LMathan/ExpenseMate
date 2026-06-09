@@ -17,21 +17,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<Map<String, dynamic>> _slides = [
     {
       'title': 'Track every expense effortlessly',
-      'subtitle': 'Scan receipts with smart OCR, auto-track bank SMS notifications, and log manual entries instantly.',
+      'subtitle':
+          'Scan receipts with smart OCR, auto-track bank SMS notifications, and log manual entries instantly.',
       'gradient': [AppColors.primaryPurple, AppColors.electricBlue],
       'icon': Icons.account_balance_wallet_rounded,
       'accent': AppColors.electricBlue,
     },
     {
       'title': 'AI-powered spending insights',
-      'subtitle': 'Chat with your AI financial advisor, discover savings opportunities, and understand your habits.',
+      'subtitle':
+          'Chat with your AI financial advisor, discover savings opportunities, and understand your habits.',
       'gradient': [AppColors.electricBlue, AppColors.emeraldGreen],
       'icon': Icons.insights_rounded,
       'accent': AppColors.emeraldGreen,
     },
     {
       'title': 'Save smarter, spend better',
-      'subtitle': 'Create intelligent category budgets, monitor subscriptions, and participate in savings challenges.',
+      'subtitle':
+          'Create intelligent category budgets, monitor subscriptions, and participate in savings challenges.',
       'gradient': [AppColors.accentOrange, AppColors.accentPink],
       'icon': Icons.stars_rounded,
       'accent': AppColors.accentPink,
@@ -74,7 +77,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ),
-          
+
           SafeArea(
             child: Column(
               children: [
@@ -94,7 +97,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                 ),
-                
+
                 Expanded(
                   child: PageView.builder(
                     controller: _pageController,
@@ -136,24 +139,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               ),
                             ),
                             const SizedBox(height: 48),
-                            
+
                             Text(
                               slide['title'],
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.heading2(isDark: true).copyWith(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                              ),
+                              style: AppTextStyles.heading2(isDark: true)
+                                  .copyWith(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                             ),
                             const SizedBox(height: 16),
-                            
+
                             Text(
                               slide['subtitle'],
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.bodyMedium(isDark: true).copyWith(
-                                color: AppColors.textSecondaryDark.withOpacity(0.8),
-                                height: 1.5,
-                              ),
+                              style: AppTextStyles.bodyMedium(isDark: true)
+                                  .copyWith(
+                                    color: AppColors.textSecondaryDark
+                                        .withValues(alpha: 0.8),
+                                    height: 1.5,
+                                  ),
                             ),
                           ],
                         ),
@@ -161,9 +167,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     },
                   ),
                 ),
-                
+
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 24.0,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -176,7 +185,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             height: 8,
                             width: i == _currentPage ? 24 : 8,
                             decoration: BoxDecoration(
-                              color: i == _currentPage 
+                              color: i == _currentPage
                                   ? _slides[_currentPage]['accent']
                                   : AppColors.borderDark,
                               borderRadius: BorderRadius.circular(4),
@@ -184,21 +193,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
                       ),
-                      
+
                       ElevatedButton(
                         onPressed: _onNext,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _slides[_currentPage]['accent'],
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           elevation: 8,
-                          shadowColor: _slides[_currentPage]['accent'].withOpacity(0.4),
+                          shadowColor: _slides[_currentPage]['accent']
+                              .withOpacity(0.4),
                         ),
                         child: Text(
-                          _currentPage == _slides.length - 1 ? 'Get Started' : 'Next',
+                          _currentPage == _slides.length - 1
+                              ? 'Get Started'
+                              : 'Next',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

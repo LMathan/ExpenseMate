@@ -6,9 +6,10 @@ enum ChartType { line, bar, pie }
 
 class InteractiveChart extends StatefulWidget {
   final ChartType type;
-  final Map<String, double> data; // For Pie chart: {'Food': 500.0, 'Travel': 200.0...}
-  final List<double>? trendData;  // For Line/Bar chart: [120.0, 300.0, 450.0...]
-  final List<String>? labels;     // For Line/Bar chart labels: ['Mon', 'Tue'...]
+  final Map<String, double>
+  data; // For Pie chart: {'Food': 500.0, 'Travel': 200.0...}
+  final List<double>? trendData; // For Line/Bar chart: [120.0, 300.0, 450.0...]
+  final List<String>? labels; // For Line/Bar chart labels: ['Mon', 'Tue'...]
 
   const InteractiveChart({
     super.key,
@@ -45,7 +46,9 @@ class _InteractiveChartState extends State<InteractiveChart> {
       return const Center(child: Text('No data available'));
     }
 
-    final total = entries.map((e) => e.value).fold<double>(0, (sum, val) => sum + val);
+    final total = entries
+        .map((e) => e.value)
+        .fold<double>(0, (sum, val) => sum + val);
 
     final List<Color> colors = [
       AppColors.primaryPurple,
@@ -74,7 +77,8 @@ class _InteractiveChartState extends State<InteractiveChart> {
                       touchedIndex = -1;
                       return;
                     }
-                    touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                    touchedIndex =
+                        pieTouchResponse.touchedSection!.touchedSectionIndex;
                   });
                 },
               ),
@@ -86,12 +90,16 @@ class _InteractiveChartState extends State<InteractiveChart> {
                 final fontSize = isTouched ? 16.0 : 12.0;
                 final radius = isTouched ? 65.0 : 55.0;
                 final value = entries[i].value;
-                final percentage = total > 0 ? (value / total * 100).toStringAsFixed(0) : '0';
+                final percentage = total > 0
+                    ? (value / total * 100).toStringAsFixed(0)
+                    : '0';
 
                 return PieChartSectionData(
                   color: colors[i % colors.length],
                   value: value,
-                  title: isTouched ? '${entries[i].key}\n$percentage%' : '$percentage%',
+                  title: isTouched
+                      ? '${entries[i].key}\n$percentage%'
+                      : '$percentage%',
                   radius: radius,
                   titleStyle: TextStyle(
                     fontSize: fontSize,
@@ -110,7 +118,9 @@ class _InteractiveChartState extends State<InteractiveChart> {
               'Total',
               style: TextStyle(
                 fontSize: 12,
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                color: isDark
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryLight,
               ),
             ),
             Text(
@@ -122,16 +132,20 @@ class _InteractiveChartState extends State<InteractiveChart> {
               ),
             ),
           ],
-        )
+        ),
       ],
     );
   }
 
   Widget _buildLineChart(bool isDark) {
-    final trend = widget.trendData ?? [100.0, 200.0, 150.0, 400.0, 300.0, 500.0, 450.0];
+    final trend =
+        widget.trendData ?? [100.0, 200.0, 150.0, 400.0, 300.0, 500.0, 450.0];
     final labelList = widget.labels ?? ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-    final spots = List.generate(trend.length, (i) => FlSpot(i.toDouble(), trend[i]));
+    final spots = List.generate(
+      trend.length,
+      (i) => FlSpot(i.toDouble(), trend[i]),
+    );
 
     double maxVal = trend.fold(0.0, (max, val) => val > max ? val : max);
     if (maxVal == 0) maxVal = 100.0;
@@ -144,15 +158,23 @@ class _InteractiveChartState extends State<InteractiveChart> {
             show: true,
             drawVerticalLine: false,
             getDrawingHorizontalLine: (value) => FlLine(
-              color: isDark ? AppColors.borderDark.withOpacity(0.3) : AppColors.borderLight.withOpacity(0.5),
+              color: isDark
+                  ? AppColors.borderDark.withValues(alpha: 0.3)
+                  : AppColors.borderLight.withValues(alpha: 0.5),
               strokeWidth: 1,
             ),
           ),
           titlesData: FlTitlesData(
             show: true,
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -166,7 +188,9 @@ class _InteractiveChartState extends State<InteractiveChart> {
                       child: Text(
                         labelList[idx],
                         style: TextStyle(
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondaryLight,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -197,8 +221,8 @@ class _InteractiveChartState extends State<InteractiveChart> {
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primaryPurple.withOpacity(0.35),
-                    AppColors.electricBlue.withOpacity(0.02),
+                    AppColors.primaryPurple.withValues(alpha: 0.35),
+                    AppColors.electricBlue.withValues(alpha: 0.02),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
@@ -212,8 +236,10 @@ class _InteractiveChartState extends State<InteractiveChart> {
   }
 
   Widget _buildBarChart(bool isDark) {
-    final trend = widget.trendData ?? [1000.0, 2000.0, 1500.0, 4000.0, 3000.0, 5000.0];
-    final labelList = widget.labels ?? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    final trend =
+        widget.trendData ?? [1000.0, 2000.0, 1500.0, 4000.0, 3000.0, 5000.0];
+    final labelList =
+        widget.labels ?? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
 
     double maxVal = trend.fold(0.0, (max, val) => val > max ? val : max);
     if (maxVal == 0) maxVal = 100.0;
@@ -225,9 +251,15 @@ class _InteractiveChartState extends State<InteractiveChart> {
           gridData: const FlGridData(show: false),
           titlesData: FlTitlesData(
             show: true,
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -240,7 +272,9 @@ class _InteractiveChartState extends State<InteractiveChart> {
                       child: Text(
                         labelList[idx],
                         style: TextStyle(
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                          color: isDark
+                              ? AppColors.textSecondaryDark
+                              : AppColors.textSecondaryLight,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -265,11 +299,15 @@ class _InteractiveChartState extends State<InteractiveChart> {
                     end: Alignment.topCenter,
                   ),
                   width: 16,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(6),
+                  ),
                   backDrawRodData: BackgroundBarChartRodData(
                     show: true,
                     toY: maxVal * 1.1,
-                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.03),
                   ),
                 ),
               ],

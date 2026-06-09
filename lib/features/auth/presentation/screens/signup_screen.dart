@@ -29,7 +29,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   void _onSignup() async {
     if (_formKey.currentState!.validate()) {
-      final success = await ref.read(authProvider.notifier).signupWithEmail(
+      final success = await ref
+          .read(authProvider.notifier)
+          .signupWithEmail(
             _emailController.text.trim(),
             _passwordController.text,
             _nameController.text.trim(),
@@ -72,12 +74,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.insights_rounded, size: 50, color: AppColors.primaryPurple),
+                  const Icon(
+                    Icons.insights_rounded,
+                    size: 50,
+                    color: AppColors.primaryPurple,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Create Account',
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.heading2(isDark: true).copyWith(fontSize: 32),
+                    style: AppTextStyles.heading2(
+                      isDark: true,
+                    ).copyWith(fontSize: 32),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -86,7 +94,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     style: AppTextStyles.bodyMedium(isDark: true),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   GlassCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -96,84 +104,137 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             labelText: 'Full Name',
-                            labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
-                            prefixIcon: const Icon(Icons.person_outline, color: AppColors.primaryPurple),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            labelStyle: const TextStyle(
+                              color: AppColors.textSecondaryDark,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.person_outline,
+                              color: AppColors.primaryPurple,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.borderDark),
+                              borderSide: const BorderSide(
+                                color: AppColors.borderDark,
+                              ),
                             ),
                           ),
-                          validator: (value) => value != null && value.isNotEmpty ? null : 'Enter your name',
+                          validator: (value) =>
+                              value != null && value.isNotEmpty
+                              ? null
+                              : 'Enter your name',
                         ),
                         const SizedBox(height: 16),
-                        
+
                         TextFormField(
                           controller: _emailController,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             labelText: 'Email Address',
-                            labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
-                            prefixIcon: const Icon(Icons.email_outlined, color: AppColors.primaryPurple),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            labelStyle: const TextStyle(
+                              color: AppColors.textSecondaryDark,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.email_outlined,
+                              color: AppColors.primaryPurple,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.borderDark),
+                              borderSide: const BorderSide(
+                                color: AppColors.borderDark,
+                              ),
                             ),
                           ),
-                          validator: (value) => value != null && value.contains('@') ? null : 'Enter a valid email',
+                          validator: (value) =>
+                              value != null && value.contains('@')
+                              ? null
+                              : 'Enter a valid email',
                         ),
                         const SizedBox(height: 16),
-                        
+
                         TextFormField(
                           controller: _passwordController,
                           obscureText: true,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
-                            prefixIcon: const Icon(Icons.lock_outline, color: AppColors.primaryPurple),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            labelStyle: const TextStyle(
+                              color: AppColors.textSecondaryDark,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.lock_outline,
+                              color: AppColors.primaryPurple,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.borderDark),
+                              borderSide: const BorderSide(
+                                color: AppColors.borderDark,
+                              ),
                             ),
                           ),
-                          validator: (value) => value != null && value.length >= 6 ? null : 'Password must be >= 6 chars',
+                          validator: (value) =>
+                              value != null && value.length >= 6
+                              ? null
+                              : 'Password must be >= 6 chars',
                         ),
                         const SizedBox(height: 24),
-                        
+
                         ElevatedButton(
                           onPressed: isLoading ? null : _onSignup,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primaryPurple,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: isLoading
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
                                 )
-                              : const Text('Sign Up', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              : const Text(
+                                  'Sign Up',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Already have an account? ', style: TextStyle(color: AppColors.textSecondaryDark)),
+                      const Text(
+                        'Already have an account? ',
+                        style: TextStyle(color: AppColors.textSecondaryDark),
+                      ),
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
-                        child: Text(
+                        child: const Text(
                           'Login',
-                          style: TextStyle(color: AppColors.primaryPurple, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: AppColors.primaryPurple,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

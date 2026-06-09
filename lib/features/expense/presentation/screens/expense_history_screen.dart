@@ -9,13 +9,14 @@ class ExpenseHistoryScreen extends ConsumerStatefulWidget {
   const ExpenseHistoryScreen({super.key});
 
   @override
-  ConsumerState<ExpenseHistoryScreen> createState() => _ExpenseHistoryScreenState();
+  ConsumerState<ExpenseHistoryScreen> createState() =>
+      _ExpenseHistoryScreenState();
 }
 
 class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'All';
-  String _selectedPaymentMethod = 'All';
+  final String _selectedPaymentMethod = 'All';
   String _sortBy = 'Date (Newest)';
 
   final List<String> _categories = [
@@ -30,7 +31,7 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
     'Rent',
     'EMI',
     'Fuel',
-    'Other'
+    'Other',
   ];
 
   final List<String> _paymentMethods = [
@@ -39,14 +40,14 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
     'Credit Card',
     'Debit Card',
     'NetBanking',
-    'Cash'
+    'Cash',
   ];
 
   final List<String> _sortOptions = [
     'Date (Newest)',
     'Date (Oldest)',
     'Amount (Highest)',
-    'Amount (Lowest)'
+    'Amount (Lowest)',
   ];
 
   @override
@@ -55,11 +56,15 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     List<dynamic> filtered = txs.where((tx) {
-      final matchesSearch = tx.merchant.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+      final matchesSearch =
+          tx.merchant.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           tx.notes.toLowerCase().contains(_searchQuery.toLowerCase());
-      
-      final matchesCategory = _selectedCategory == 'All' || tx.category == _selectedCategory;
-      final matchesMethod = _selectedPaymentMethod == 'All' || tx.paymentMethod == _selectedPaymentMethod;
+
+      final matchesCategory =
+          _selectedCategory == 'All' || tx.category == _selectedCategory;
+      final matchesMethod =
+          _selectedPaymentMethod == 'All' ||
+          tx.paymentMethod == _selectedPaymentMethod;
 
       return matchesSearch && matchesCategory && matchesMethod;
     }).toList();
@@ -79,10 +84,16 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
       appBar: AppBar(
         title: Text(
           'Transactions Ledger',
-          style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? Colors.white : Colors.black,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -90,18 +101,30 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 10,
+              ),
               child: Column(
                 children: [
                   TextField(
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'Search merchant or description...',
-                      hintStyle: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
-                      prefixIcon: const Icon(Icons.search, color: AppColors.electricBlue),
+                      hintStyle: const TextStyle(
+                        color: AppColors.textSecondaryDark,
+                        fontSize: 13,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.electricBlue,
+                      ),
                       filled: true,
-                      fillColor: AppColors.cardDark.withOpacity(0.3),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      fillColor: AppColors.cardDark.withValues(alpha: 0.3),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                     onChanged: (val) {
                       setState(() {
@@ -116,16 +139,31 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(color: AppColors.cardDark.withOpacity(0.3), borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(
+                            color: AppColors.cardDark.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _selectedCategory,
                               isExpanded: true,
                               dropdownColor: AppColors.cardDark,
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              items: _categories
+                                  .map(
+                                    (c) => DropdownMenuItem(
+                                      value: c,
+                                      child: Text(c),
+                                    ),
+                                  )
+                                  .toList(),
                               onChanged: (val) {
-                                if (val != null) setState(() => _selectedCategory = val);
+                                if (val != null)
+                                  setState(() => _selectedCategory = val);
                               },
                             ),
                           ),
@@ -136,14 +174,28 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(color: AppColors.cardDark.withOpacity(0.3), borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(
+                            color: AppColors.cardDark.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _sortBy,
                               isExpanded: true,
                               dropdownColor: AppColors.cardDark,
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                              items: _sortOptions.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              items: _sortOptions
+                                  .map(
+                                    (o) => DropdownMenuItem(
+                                      value: o,
+                                      child: Text(o),
+                                    ),
+                                  )
+                                  .toList(),
                               onChanged: (val) {
                                 if (val != null) setState(() => _sortBy = val);
                               },
@@ -159,9 +211,17 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
 
             Expanded(
               child: filtered.isEmpty
-                  ? const Center(child: Text('No matching transactions found.', style: TextStyle(color: AppColors.textSecondaryDark)))
+                  ? const Center(
+                      child: Text(
+                        'No matching transactions found.',
+                        style: TextStyle(color: AppColors.textSecondaryDark),
+                      ),
+                    )
                   : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                       itemCount: filtered.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
@@ -208,9 +268,9 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
       ),
       onDismissed: (_) {
         ref.read(transactionProvider.notifier).deleteTransaction(tx.id);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaction deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Transaction deleted')));
       },
       child: GlassCard(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -220,7 +280,7 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.primaryPurple.withOpacity(0.12),
+                color: AppColors.primaryPurple.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: AppColors.primaryPurple, size: 20),
@@ -232,12 +292,19 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
                 children: [
                   Text(
                     tx.merchant.isEmpty ? tx.category : tx.merchant,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '$formattedDate • ${tx.paymentMethod}',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondaryDark),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondaryDark,
+                    ),
                   ),
                 ],
               ),

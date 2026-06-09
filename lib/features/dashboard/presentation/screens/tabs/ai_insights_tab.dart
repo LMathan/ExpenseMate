@@ -19,8 +19,9 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
   final List<Map<String, String>> _messages = [
     {
       'sender': 'ai',
-      'text': 'Hi, I am your ExpenseAI Financial Advisor. I have analyzed your transactions database and current budget sheets. Ask me any question like:\n- "Can I afford a ₹15,000 phone?"\n- "Should I buy a bike of ₹1,20,000?"\n- "How much should I save monthly?"'
-    }
+      'text':
+          'Hi, I am your ExpenseAI Financial Advisor. I have analyzed your transactions database and current budget sheets. Ask me any question like:\n- "Can I afford a ₹15,000 phone?"\n- "Should I buy a bike of ₹1,20,000?"\n- "How much should I save monthly?"',
+    },
   ];
 
   bool _isTyping = false;
@@ -81,7 +82,11 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 20.0, top: 10.0, right: 20.0),
+              padding: const EdgeInsets.only(
+                left: 20.0,
+                top: 10.0,
+                right: 20.0,
+              ),
               child: Text(
                 'AI Financial intelligence',
                 style: AppTextStyles.heading2(isDark: isDark),
@@ -101,17 +106,16 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
                 },
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Text(
                 'CHAT WITH ADVISOR AI',
-                style: AppTextStyles.caption(isDark: isDark).copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                ),
+                style: AppTextStyles.caption(
+                  isDark: isDark,
+                ).copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.0),
               ),
             ),
             const SizedBox(height: 12),
@@ -120,14 +124,22 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  color: isDark ? AppColors.cardDark.withOpacity(0.4) : Colors.white.withOpacity(0.6),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                  color: isDark
+                      ? AppColors.cardDark.withValues(alpha: 0.4)
+                      : Colors.white.withValues(alpha: 0.6),
                   border: Border.all(
-                    color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight,
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
                   child: Column(
                     children: [
                       Expanded(
@@ -145,14 +157,16 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
                           },
                         ),
                       ),
-                      
+
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: isDark ? AppColors.cardDark : Colors.white,
                           border: Border(
                             top: BorderSide(
-                              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                              color: isDark
+                                  ? AppColors.borderDark
+                                  : AppColors.borderLight,
                             ),
                           ),
                         ),
@@ -163,8 +177,12 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
                                 controller: _queryController,
                                 style: const TextStyle(color: Colors.white),
                                 decoration: const InputDecoration(
-                                  hintText: 'Ask advisor, e.g. "Can I buy a laptop?"',
-                                  hintStyle: TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
+                                  hintText:
+                                      'Ask advisor, e.g. "Can I buy a laptop?"',
+                                  hintStyle: TextStyle(
+                                    color: AppColors.textSecondaryDark,
+                                    fontSize: 13,
+                                  ),
                                   border: InputBorder.none,
                                 ),
                                 onSubmitted: (_) => _sendMessage(),
@@ -172,7 +190,10 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
                             ),
                             IconButton(
                               onPressed: _sendMessage,
-                              icon: const Icon(Icons.send_rounded, color: AppColors.primaryPurple),
+                              icon: const Icon(
+                                Icons.send_rounded,
+                                color: AppColors.primaryPurple,
+                              ),
                             ),
                           ],
                         ),
@@ -224,7 +245,11 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
                 const SizedBox(width: 8),
                 Text(
                   insight['title'],
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),
@@ -233,7 +258,11 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
               insight['description'],
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: AppColors.textSecondaryDark, height: 1.4),
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondaryDark,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -255,7 +284,9 @@ class _AiInsightsTabState extends State<AiInsightsTab> {
             bottomRight: Radius.circular(isAi ? 16 : 0),
           ),
           gradient: isAi
-              ? const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF0F172A)])
+              ? const LinearGradient(
+                  colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                )
               : AppColors.primaryGradient,
         ),
         constraints: const BoxConstraints(maxWidth: 260),

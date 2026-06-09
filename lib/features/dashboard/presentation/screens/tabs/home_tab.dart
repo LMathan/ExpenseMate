@@ -127,18 +127,21 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        Text(
-                          'Good Morning,',
-                          style: AppTextStyles.bodyMedium(isDark: isDark).copyWith(
-                            color: AppColors.textSecondaryDark,
-                          ),
+                        Image.asset(
+                          'assets/images/app_icon.png',
+                          height: 36,
+                          width: 36,
                         ),
+                        const SizedBox(width: 8),
                         Text(
-                          'Mathan',
-                          style: AppTextStyles.heading2(isDark: isDark).copyWith(fontSize: 26),
+                          'ExpenseAI',
+                          style: GoogleFonts.outfit(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ],
                     ),
@@ -163,6 +166,22 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                         ),
                       ],
                     )
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Good Morning,',
+                      style: AppTextStyles.bodyMedium(isDark: isDark).copyWith(
+                        color: AppColors.textSecondaryDark,
+                      ),
+                    ),
+                    Text(
+                      'Mathan',
+                      style: AppTextStyles.heading2(isDark: isDark).copyWith(fontSize: 26),
+                    ),
                   ],
                 ),
                 

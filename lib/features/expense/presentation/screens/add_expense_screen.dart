@@ -45,7 +45,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     'Rent',
     'EMI',
     'Fuel',
-    'Other'
+    'Other',
   ];
 
   final List<String> _paymentMethods = [
@@ -53,7 +53,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     'Credit Card',
     'Debit Card',
     'NetBanking',
-    'Cash'
+    'Cash',
   ];
 
   @override
@@ -72,7 +72,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     if (widget.preFilledNotes != null) {
       _notesController.text = widget.preFilledNotes!;
     }
-    if (widget.preFilledCategory != null && _categories.contains(widget.preFilledCategory)) {
+    if (widget.preFilledCategory != null &&
+        _categories.contains(widget.preFilledCategory)) {
       _selectedCategory = widget.preFilledCategory!;
     }
   }
@@ -119,7 +120,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       final merchant = _merchantController.text.trim();
       final notes = _notesController.text.trim();
 
-      await ref.read(transactionProvider.notifier).addTransaction(
+      await ref
+          .read(transactionProvider.notifier)
+          .addTransaction(
             amount: amount,
             category: _selectedCategory,
             merchant: merchant.isEmpty ? _selectedCategory : merchant,
@@ -131,7 +134,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Expense logged successfully!'), backgroundColor: AppColors.emeraldGreen),
+          const SnackBar(
+            content: Text('Expense logged successfully!'),
+            backgroundColor: AppColors.emeraldGreen,
+          ),
         );
       }
     }
@@ -146,10 +152,16 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       appBar: AppBar(
         title: Text(
           'Log Expense',
-          style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? Colors.white : Colors.black,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -163,14 +175,19 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               children: [
                 GlassCard(
                   gradientColors: [
-                    AppColors.primaryPurple.withOpacity(0.12),
-                    AppColors.electricBlue.withOpacity(0.04),
+                    AppColors.primaryPurple.withValues(alpha: 0.12),
+                    AppColors.electricBlue.withValues(alpha: 0.04),
                   ],
                   child: Column(
                     children: [
                       const Text(
                         'ENTER AMOUNT',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textSecondaryDark, letterSpacing: 1.2),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondaryDark,
+                          letterSpacing: 1.2,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -179,39 +196,54 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         children: [
                           const Text(
                             '₹',
-                            style: TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: Colors.white),
+                            style: TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           SizedBox(
                             width: 180,
                             child: TextFormField(
                               controller: _amountController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white),
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
                                 hintText: '0',
                                 hintStyle: TextStyle(color: Colors.white24),
                               ),
                               validator: (value) {
-                                if (value == null || value.isEmpty) return 'Enter amount';
-                                if (double.tryParse(value) == null) return 'Invalid number';
+                                if (value == null || value.isEmpty)
+                                  return 'Enter amount';
+                                if (double.tryParse(value) == null)
+                                  return 'Invalid number';
                                 return null;
                               },
                             ),
-                          )
+                          ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
 
                 Text(
                   'SELECT CATEGORY',
-                  style: AppTextStyles.caption(isDark: isDark).copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                  style: AppTextStyles.caption(
+                    isDark: isDark,
+                  ).copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.0),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -231,17 +263,25 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: isSelected ? AppColors.primaryPurple : AppColors.borderDark,
+                              color: isSelected
+                                  ? AppColors.primaryPurple
+                                  : AppColors.borderDark,
                               width: isSelected ? 2.0 : 1.0,
                             ),
-                            color: isSelected ? AppColors.primaryPurple.withOpacity(0.15) : AppColors.cardDark.withOpacity(0.3),
+                            color: isSelected
+                                ? AppColors.primaryPurple.withValues(
+                                    alpha: 0.15,
+                                  )
+                                : AppColors.cardDark.withValues(alpha: 0.3),
                           ),
                           child: Text(
                             cat,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: isSelected ? AppColors.primaryPurple : Colors.white70,
+                              color: isSelected
+                                  ? AppColors.primaryPurple
+                                  : Colors.white70,
                             ),
                           ),
                         ),
@@ -260,12 +300,22 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           labelText: 'Merchant Name',
-                          labelStyle: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
-                          prefixIcon: const Icon(Icons.storefront_rounded, color: AppColors.electricBlue),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          labelStyle: const TextStyle(
+                            color: AppColors.textSecondaryDark,
+                            fontSize: 13,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.storefront_rounded,
+                            color: AppColors.electricBlue,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.borderDark),
+                            borderSide: const BorderSide(
+                              color: AppColors.borderDark,
+                            ),
                           ),
                         ),
                       ),
@@ -276,12 +326,22 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           labelText: 'Add Notes / Description',
-                          labelStyle: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 13),
-                          prefixIcon: const Icon(Icons.description_outlined, color: AppColors.electricBlue),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          labelStyle: const TextStyle(
+                            color: AppColors.textSecondaryDark,
+                            fontSize: 13,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.description_outlined,
+                            color: AppColors.electricBlue,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.borderDark),
+                            borderSide: const BorderSide(
+                              color: AppColors.borderDark,
+                            ),
                           ),
                         ),
                       ),
@@ -299,41 +359,80 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           onTap: _presentDatePicker,
                           child: Row(
                             children: [
-                              const Icon(Icons.calendar_today, color: AppColors.accentOrange, size: 20),
+                              const Icon(
+                                Icons.calendar_today,
+                                color: AppColors.accentOrange,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('DATE', style: TextStyle(fontSize: 9, color: AppColors.textSecondaryDark, fontWeight: FontWeight.bold)),
+                                  const Text(
+                                    'DATE',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: AppColors.textSecondaryDark,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                   Text(
-                                    DateFormat('MMM dd, yyyy').format(_selectedDate),
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                                  )
+                                    DateFormat(
+                                      'MMM dd, yyyy',
+                                    ).format(_selectedDate),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 ],
-                              )
+                              ),
                             ],
                           ),
                         ),
                       ),
-                      Container(width: 1, height: 36, color: AppColors.borderDark),
+                      Container(
+                        width: 1,
+                        height: 36,
+                        color: AppColors.borderDark,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(Icons.credit_card_rounded, color: AppColors.emeraldGreen, size: 20),
+                            const Icon(
+                              Icons.credit_card_rounded,
+                              color: AppColors.emeraldGreen,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('METHOD', style: TextStyle(fontSize: 9, color: AppColors.textSecondaryDark, fontWeight: FontWeight.bold)),
+                                const Text(
+                                  'METHOD',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: AppColors.textSecondaryDark,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                                 DropdownButton<String>(
                                   value: _selectedPaymentMethod,
                                   dropdownColor: AppColors.cardDark,
                                   isDense: true,
                                   underline: const SizedBox(),
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                   items: _paymentMethods.map((m) {
-                                    return DropdownMenuItem(value: m, child: Text(m));
+                                    return DropdownMenuItem(
+                                      value: m,
+                                      child: Text(m),
+                                    );
                                   }).toList(),
                                   onChanged: (val) {
                                     if (val != null) {
@@ -342,9 +441,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                                       });
                                     }
                                   },
-                                )
+                                ),
                               ],
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -359,10 +458,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryPurple,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     elevation: 8,
-                    shadowColor: AppColors.primaryPurple.withOpacity(0.4),
+                    shadowColor: AppColors.primaryPurple.withValues(alpha: 0.4),
                   ),
                   child: const Text(
                     'Save Transaction',

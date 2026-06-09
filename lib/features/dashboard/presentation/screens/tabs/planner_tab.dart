@@ -13,7 +13,8 @@ class PlannerTab extends ConsumerStatefulWidget {
   ConsumerState<PlannerTab> createState() => _PlannerTabState();
 }
 
-class _PlannerTabState extends ConsumerState<PlannerTab> with SingleTickerProviderStateMixin {
+class _PlannerTabState extends ConsumerState<PlannerTab>
+    with SingleTickerProviderStateMixin {
   late TabController _plannerTabController;
   DateTime _focusedMonth = DateTime.now();
 
@@ -77,60 +78,118 @@ class _PlannerTabState extends ConsumerState<PlannerTab> with SingleTickerProvid
                         GlassCard(
                           padding: const EdgeInsets.all(16),
                           gradientColors: [
-                            AppColors.primaryPurple.withOpacity(0.15),
-                            AppColors.electricBlue.withOpacity(0.05)
+                            AppColors.primaryPurple.withValues(alpha: 0.15),
+                            AppColors.electricBlue.withValues(alpha: 0.05),
                           ],
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Monthly Subscriptions:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                              Text('₹${subTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.accentPink, fontSize: 16)),
+                              const Text(
+                                'Monthly Subscriptions:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                '₹${subTotal.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.accentPink,
+                                  fontSize: 16,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 12),
                         Expanded(
                           child: subs.isEmpty
-                              ? const Center(child: Text('No subscriptions found.'))
+                              ? const Center(
+                                  child: Text('No subscriptions found.'),
+                                )
                               : ListView.separated(
                                   itemCount: subs.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 10),
                                   itemBuilder: (context, index) {
                                     final sub = subs[index];
-                                    final renewal = DateFormat('MMM dd').format(sub.dueDate);
+                                    final renewal = DateFormat(
+                                      'MMM dd',
+                                    ).format(sub.dueDate);
                                     return GlassCard(
                                       padding: const EdgeInsets.all(12),
                                       child: Row(
                                         children: [
                                           Container(
                                             padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(color: AppColors.electricBlue.withOpacity(0.12), shape: BoxShape.circle),
-                                            child: const Icon(Icons.sync_rounded, color: AppColors.electricBlue, size: 20),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.electricBlue
+                                                  .withValues(alpha: 0.12),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.sync_rounded,
+                                              color: AppColors.electricBlue,
+                                              size: 20,
+                                            ),
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                Text(sub.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                                                Text('Renews on $renewal', style: const TextStyle(fontSize: 11, color: AppColors.textSecondaryDark)),
+                                                Text(
+                                                  sub.title,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'Renews on $renewal',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors
+                                                        .textSecondaryDark,
+                                                  ),
+                                                ),
                                               ],
                                             ),
                                           ),
                                           Column(
-                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
                                             children: [
-                                              Text('₹${sub.amount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                                              GestureDetector(
-                                                onTap: () => ref.read(subscriptionsProvider.notifier).toggleReminder(sub.id),
-                                                child: Icon(
-                                                  sub.reminderEnabled ? Icons.notifications_active : Icons.notifications_off,
-                                                  size: 16,
-                                                  color: sub.reminderEnabled ? AppColors.accentOrange : AppColors.textSecondaryDark,
+                                              Text(
+                                                '₹${sub.amount.toStringAsFixed(0)}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
                                                 ),
-                                              )
+                                              ),
+                                              GestureDetector(
+                                                onTap: () => ref
+                                                    .read(
+                                                      subscriptionsProvider
+                                                          .notifier,
+                                                    )
+                                                    .toggleReminder(sub.id),
+                                                child: Icon(
+                                                  sub.reminderEnabled
+                                                      ? Icons
+                                                            .notifications_active
+                                                      : Icons.notifications_off,
+                                                  size: 16,
+                                                  color: sub.reminderEnabled
+                                                      ? AppColors.accentOrange
+                                                      : AppColors
+                                                            .textSecondaryDark,
+                                                ),
+                                              ),
                                             ],
-                                          )
+                                          ),
                                         ],
                                       ),
                                     );
@@ -144,10 +203,13 @@ class _PlannerTabState extends ConsumerState<PlannerTab> with SingleTickerProvid
                         ? const Center(child: Text('No bills due.'))
                         : ListView.separated(
                             itemCount: bills.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final bill = bills[index];
-                              final due = DateFormat('MMM dd, yyyy').format(bill.dueDate);
+                              final due = DateFormat(
+                                'MMM dd, yyyy',
+                              ).format(bill.dueDate);
                               return GlassCard(
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
@@ -155,22 +217,34 @@ class _PlannerTabState extends ConsumerState<PlannerTab> with SingleTickerProvid
                                     Checkbox(
                                       value: bill.isPaid,
                                       activeColor: AppColors.emeraldGreen,
-                                      onChanged: (_) => ref.read(billsProvider.notifier).togglePaid(bill.id),
+                                      onChanged: (_) => ref
+                                          .read(billsProvider.notifier)
+                                          .togglePaid(bill.id),
                                     ),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             bill.title,
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               color: Colors.white,
-                                              decoration: bill.isPaid ? TextDecoration.lineThrough : null,
+                                              decoration: bill.isPaid
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
                                             ),
                                           ),
-                                          Text('Due by $due', style: const TextStyle(fontSize: 11, color: AppColors.textSecondaryDark)),
+                                          Text(
+                                            'Due by $due',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color:
+                                                  AppColors.textSecondaryDark,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -178,9 +252,11 @@ class _PlannerTabState extends ConsumerState<PlannerTab> with SingleTickerProvid
                                       '₹${bill.amount.toStringAsFixed(0)}',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: bill.isPaid ? AppColors.emeraldGreen : AppColors.accentOrange,
+                                        color: bill.isPaid
+                                            ? AppColors.emeraldGreen
+                                            : AppColors.accentOrange,
                                       ),
-                                    )
+                                    ),
                                   ],
                                 ),
                               );
@@ -212,7 +288,9 @@ class _PlannerTabState extends ConsumerState<PlannerTab> with SingleTickerProvid
       }
     }
     for (var bill in bills) {
-      if (bill.dueDate.year == year && bill.dueDate.month == month && !bill.isPaid) {
+      if (bill.dueDate.year == year &&
+          bill.dueDate.month == month &&
+          !bill.isPaid) {
         dayHasBill[bill.dueDate.day] = true;
       }
     }
@@ -224,25 +302,46 @@ class _PlannerTabState extends ConsumerState<PlannerTab> with SingleTickerProvid
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(monthName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+              Text(
+                monthName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
               Row(
                 children: [
                   IconButton(
-                    onPressed: () => setState(() => _focusedMonth = DateTime(year, month - 1)),
+                    onPressed: () => setState(
+                      () => _focusedMonth = DateTime(year, month - 1),
+                    ),
                     icon: const Icon(Icons.chevron_left, color: Colors.white),
                   ),
                   IconButton(
-                    onPressed: () => setState(() => _focusedMonth = DateTime(year, month + 1)),
+                    onPressed: () => setState(
+                      () => _focusedMonth = DateTime(year, month + 1),
+                    ),
                     icon: const Icon(Icons.chevron_right, color: Colors.white),
                   ),
                 ],
-              )
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((e) => Text(e, style: TextStyle(fontSize: 10, color: AppColors.textSecondaryDark))).toList(),
+            children: ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+                .map(
+                  (e) => Text(
+                    e,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textSecondaryDark,
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 8),
           GridView.builder(
@@ -263,26 +362,41 @@ class _PlannerTabState extends ConsumerState<PlannerTab> with SingleTickerProvid
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.white.withOpacity(0.03),
+                  color: Colors.white.withValues(alpha: 0.03),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('$day', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text(
+                      '$day',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (hasTx) const CircleAvatar(radius: 2, backgroundColor: AppColors.accentPink),
+                        if (hasTx)
+                          const CircleAvatar(
+                            radius: 2,
+                            backgroundColor: AppColors.accentPink,
+                          ),
                         if (hasTx && hasBill) const SizedBox(width: 2),
-                        if (hasBill) const CircleAvatar(radius: 2, backgroundColor: AppColors.accentOrange),
+                        if (hasBill)
+                          const CircleAvatar(
+                            radius: 2,
+                            backgroundColor: AppColors.accentOrange,
+                          ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               );
             },
-          )
+          ),
         ],
       ),
     );

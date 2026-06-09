@@ -123,18 +123,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.insights_rounded, size: 60, color: AppColors.primaryPurple),
+                      Center(
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          height: 100,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       Text(
-                        'Welcome Back',
+                        'ExpenseAI',
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.heading2(isDark: true).copyWith(fontSize: 32),
+                        style: AppTextStyles.heading2(isDark: true).copyWith(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Login to access your AI wealth planner',
+                        'AI-Powered Smart Expense Management',
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMedium(isDark: true),
+                        style: AppTextStyles.bodyMedium(isDark: true).copyWith(
+                          color: AppColors.textSecondaryDark.withOpacity(0.9),
+                        ),
                       ),
                       const SizedBox(height: 32),
                       

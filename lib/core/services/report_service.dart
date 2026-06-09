@@ -13,7 +13,9 @@ class ReportService {
     final tBox = Hive.box(HiveHelper.transactionsBox);
     final List<TransactionModel> txs = [];
     for (var key in tBox.keys) {
-      txs.add(TransactionModel.fromMap(Map<String, dynamic>.from(tBox.get(key))));
+      txs.add(
+        TransactionModel.fromMap(Map<String, dynamic>.from(tBox.get(key))),
+      );
     }
     txs.sort((a, b) => b.date.compareTo(a.date));
     return txs;
@@ -23,7 +25,7 @@ class ReportService {
   Future<File> generatePdfReport() async {
     final pdf = pw.Document();
     final txs = _getTransactions();
-    
+
     double totalSpent = txs.fold(0.0, (sum, item) => sum + item.amount);
 
     pdf.addPage(
@@ -36,7 +38,13 @@ class ReportService {
               child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('ExpenseAI Financial Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+                  pw.Text(
+                    'ExpenseAI Financial Report',
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
                   pw.Text(DateTime.now().toString().substring(0, 10)),
                 ],
               ),
@@ -45,13 +53,28 @@ class ReportService {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('Total Expenses Recorded:', style: pw.TextStyle(fontSize: 14)),
-                pw.Text('INR ${totalSpent.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.Text(
+                  'Total Expenses Recorded:',
+                  style: const pw.TextStyle(fontSize: 14),
+                ),
+                pw.Text(
+                  'INR ${totalSpent.toStringAsFixed(2)}',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             pw.SizedBox(height: 20),
             pw.Table.fromTextArray(
-              headers: ['Date', 'Merchant', 'Category', 'Payment Method', 'Amount (INR)'],
+              headers: [
+                'Date',
+                'Merchant',
+                'Category',
+                'Payment Method',
+                'Amount (INR)',
+              ],
               data: txs.map((tx) {
                 return [
                   tx.date.toString().substring(0, 10),
@@ -62,8 +85,14 @@ class ReportService {
                 ];
               }).toList(),
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-              rowDecoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey200, width: 0.5))),
+              headerDecoration: const pw.BoxDecoration(
+                color: PdfColors.grey300,
+              ),
+              rowDecoration: const pw.BoxDecoration(
+                border: pw.Border(
+                  bottom: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
+                ),
+              ),
               cellAlignment: pw.Alignment.centerLeft,
             ),
           ];
@@ -72,7 +101,9 @@ class ReportService {
     );
 
     final outputDir = await getTemporaryDirectory();
-    final file = File('${outputDir.path}/ExpenseAI_Report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final file = File(
+      '${outputDir.path}/ExpenseAI_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+    );
     await file.writeAsBytes(await pdf.save());
     return file;
   }
@@ -108,7 +139,9 @@ class ReportService {
     }
 
     final outputDir = await getTemporaryDirectory();
-    final file = File('${outputDir.path}/ExpenseAI_Report_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+    final file = File(
+      '${outputDir.path}/ExpenseAI_Report_${DateTime.now().millisecondsSinceEpoch}.xlsx',
+    );
     final bytes = excel.encode();
     if (bytes != null) {
       await file.writeAsBytes(bytes);
@@ -120,25 +153,36 @@ class ReportService {
   Future<File> generateCsvReport() async {
     final txs = _getTransactions();
     final buffer = StringBuffer();
-    
+
     // Headers
-    buffer.writeln('Transaction ID,Date,Merchant,Category,Payment Method,Amount,Notes');
-    
+    buffer.writeln(
+      'Transaction ID,Date,Merchant,Category,Payment Method,Amount,Notes',
+    );
+
     for (var tx in txs) {
       buffer.writeln(
-        '"${tx.id}","${tx.date.toIso8601String().substring(0, 10)}","${tx.merchant.replaceAll('"', '""')}","${tx.category}","${tx.paymentMethod}",${tx.amount},"${tx.notes.replaceAll('"', '""')}"'
+        '"${tx.id}","${tx.date.toIso8601String().substring(0, 10)}","${tx.merchant.replaceAll('"', '""')}","${tx.category}","${tx.paymentMethod}",${tx.amount},"${tx.notes.replaceAll('"', '""')}"',
       );
     }
 
     final outputDir = await getTemporaryDirectory();
-    final file = File('${outputDir.path}/ExpenseAI_Report_${DateTime.now().millisecondsSinceEpoch}.csv');
+    final file = File(
+      '${outputDir.path}/ExpenseAI_Report_${DateTime.now().millisecondsSinceEpoch}.csv',
+    );
     await file.writeAsString(buffer.toString());
     return file;
   }
 
   // Share report
-  Future<void> shareReport(File file, {String subject = 'My Financial Report'}) async {
+  Future<void> shareReport(
+    File file, {
+    String subject = 'My Financial Report',
+  }) async {
     final xFile = XFile(file.path);
-    await Share.shareXFiles([xFile], text: 'Here is my financial statement generated by ExpenseAI.', subject: subject);
+    await Share.shareXFiles(
+      [xFile],
+      text: 'Here is my financial statement generated by ExpenseAI.',
+      subject: subject,
+    );
   }
 }

@@ -14,7 +14,8 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
@@ -27,12 +28,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
       duration: const Duration(seconds: 2),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.6,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
     _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0.0, 0.6, curve: Curves.easeIn)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
+      ),
     );
 
     _controller.forward();
@@ -51,7 +56,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 
     final authState = ref.read(authProvider);
 
-    if (authState.status == AuthStatus.authenticated || authState.status == AuthStatus.guest) {
+    if (authState.status == AuthStatus.authenticated ||
+        authState.status == AuthStatus.guest) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const DashboardScreen()),
@@ -88,42 +94,36 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                     child: Opacity(
                       opacity: _opacityAnimation.value,
                       child: Container(
-                        width: 100,
-                        height: 100,
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: AppColors.primaryGradient,
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primaryPurple.withOpacity(0.5),
-                              blurRadius: 30,
-                              spreadRadius: 5,
+                              color: AppColors.primaryPurple.withValues(
+                                alpha: 0.2,
+                              ),
+                              blurRadius: 50,
+                              spreadRadius: 10,
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.insights_rounded,
-                          size: 50,
-                          color: Colors.white,
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          width: 250,
+                          height: 250,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ),
                   );
                 },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               Text(
-                'ExpenseAI',
-                style: AppTextStyles.heading1(isDark: true).copyWith(
-                  letterSpacing: 1.5,
-                  fontSize: 36,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'AI-Powered Smart Wealth Management',
+                'Track Smarter. Save Better.',
                 style: AppTextStyles.bodyMedium(isDark: true).copyWith(
-                  color: AppColors.textSecondaryDark.withOpacity(0.8),
+                  color: AppColors.textSecondaryDark.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
                 ),
               ),
             ],
