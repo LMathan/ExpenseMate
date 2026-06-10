@@ -10,6 +10,7 @@ import 'package:espenseai/features/expense/presentation/providers/expense_provid
 import 'package:espenseai/features/auth/presentation/providers/auth_provider.dart';
 import 'package:espenseai/features/auth/presentation/screens/login_screen.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:hive/hive.dart';
 import 'package:espenseai/core/storage/hive_helper.dart';
@@ -553,10 +554,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final String? profilePicPath = sBox.get('profile_picture_path') as String?;
     final String? profilePicUrl = sBox.get('profile_picture_url') as String?;
     final ImageProvider imageProvider;
-    if (profilePicPath != null && !profilePicPath.startsWith('http') && File(profilePicPath).existsSync()) {
+    if (profilePicPath != null && profilePicPath.startsWith('data:image')) {
+      final base64String = profilePicPath.split('base64,').last;
+      imageProvider = MemoryImage(base64Decode(base64String));
+    } else if (profilePicPath != null && !profilePicPath.startsWith('http') && File(profilePicPath).existsSync()) {
       imageProvider = FileImage(File(profilePicPath));
     } else if (profilePicPath != null && profilePicPath.startsWith('http')) {
       imageProvider = NetworkImage(profilePicPath);
+    } else if (profilePicUrl != null && profilePicUrl.startsWith('data:image')) {
+      final base64String = profilePicUrl.split('base64,').last;
+      imageProvider = MemoryImage(base64Decode(base64String));
     } else if (profilePicUrl != null) {
       imageProvider = NetworkImage(profilePicUrl);
     } else {

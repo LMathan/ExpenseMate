@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -55,12 +57,66 @@ class FirestoreSyncService {
 
   // Push single transaction
   Future<void> syncTransaction(TransactionModel tx) async {
+    // 1. Write to our own transactions subcollection
     await _uploadDocument('transactions', tx.id, tx.toMap());
+
+    // 2. If it's a group transaction, write it to every member's transactions subcollection
+    if (tx.groupId != null && tx.groupId!.isNotEmpty) {
+      try {
+        final groupBox = Hive.box(HiveHelper.groupsBox);
+        final groupData = groupBox.get(tx.groupId);
+        if (groupData != null) {
+          final group = GroupModel.fromMap(Map<dynamic, dynamic>.from(groupData));
+          for (final memberUid in group.memberUids) {
+            if (memberUid != _uid) {
+              await _firestore
+                  .collection('users')
+                  .doc(memberUid)
+                  .collection('transactions')
+                  .doc(tx.id)
+                  .set(tx.toMap(), SetOptions(merge: true));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error replicating group transaction to members: $e');
+      }
+    }
   }
 
-  // Delete single transaction
+  // Delete single transaction from creator and all members
   Future<void> deleteTransaction(String id) async {
-    await _deleteDocument('transactions', id);
+    if (!isAuthenticated) return;
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(_uid)
+          .collection('transactions')
+          .doc(id)
+          .get();
+      if (doc.exists) {
+        final data = doc.data();
+        if (data != null && data.containsKey('groupId') && data['groupId'] != null) {
+          final gId = data['groupId'] as String;
+          final groupBox = Hive.box(HiveHelper.groupsBox);
+          final groupData = groupBox.get(gId);
+          if (groupData != null) {
+            final group = GroupModel.fromMap(Map<dynamic, dynamic>.from(groupData));
+            for (final memberUid in group.memberUids) {
+              await _firestore
+                  .collection('users')
+                  .doc(memberUid)
+                  .collection('transactions')
+                  .doc(id)
+                  .delete();
+            }
+          }
+        }
+      }
+      await _deleteDocument('transactions', id);
+    } catch (e) {
+      debugPrint('Error deleting transaction from members: $e');
+    }
   }
 
   // Push budget details
@@ -98,9 +154,134 @@ class FirestoreSyncService {
     await _uploadDocument('challenges', challenge.id, challenge.toMap());
   }
 
-  // Push single group
+  // Push single group to creator and all members
   Future<void> syncGroup(GroupModel group) async {
-    await _uploadDocument('groups', group.id, group.toMap());
+    if (!isAuthenticated) return;
+    for (final memberUid in group.memberUids) {
+      try {
+        await _firestore
+            .collection('users')
+            .doc(memberUid)
+            .collection('groups')
+            .doc(group.id)
+            .set(group.toMap(), SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('Error syncing group for member $memberUid: $e');
+      }
+    }
+  }
+
+  // Delete single group from creator and all members
+  Future<void> deleteGroup(String id) async {
+    if (!isAuthenticated) return;
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(_uid)
+          .collection('groups')
+          .doc(id)
+          .get();
+      if (doc.exists) {
+        final data = doc.data();
+        if (data != null && data.containsKey('memberUids')) {
+          final memberUids = List<String>.from(data['memberUids'] ?? []);
+          for (final mUid in memberUids) {
+            await _firestore
+                .collection('users')
+                .doc(mUid)
+                .collection('groups')
+                .doc(id)
+                .delete();
+          }
+        }
+      }
+      await _deleteDocument('groups', id);
+    } catch (e) {
+      debugPrint('Error deleting group: $e');
+    }
+  }
+
+  // Backfill all existing groups to every member's Firestore subcollection.
+  // Fixes legacy groups created before cross-user sync was implemented.
+  // Safe to call repeatedly — uses set(merge:true) so nothing is overwritten.
+  Future<void> backfillGroupsToAllMembers() async {
+    if (!isAuthenticated) return;
+    try {
+      final groupsQuery = await _firestore
+          .collection('users')
+          .doc(_uid)
+          .collection('groups')
+          .get();
+
+      for (final doc in groupsQuery.docs) {
+        final data = doc.data();
+        final memberUids = List<String>.from(data['memberUids'] ?? []);
+        for (final memberUid in memberUids) {
+          if (memberUid == _uid) continue; // already owns it
+          try {
+            await _firestore
+                .collection('users')
+                .doc(memberUid)
+                .collection('groups')
+                .doc(doc.id)
+                .set(data, SetOptions(merge: true));
+          } catch (e) {
+            debugPrint('Backfill: could not write group ${doc.id} to $memberUid: $e');
+          }
+        }
+      }
+      debugPrint('Group backfill completed (${groupsQuery.docs.length} groups)');
+    } catch (e) {
+      debugPrint('Error during group backfill: $e');
+    }
+  }
+
+  // Real-time listener for user groups
+  StreamSubscription<QuerySnapshot>? listenToGroups(VoidCallback onChanged) {
+    if (!isAuthenticated) return null;
+    return _firestore
+        .collection('users')
+        .doc(_uid)
+        .collection('groups')
+        .snapshots()
+        .listen((snapshot) async {
+          final box = Hive.box(HiveHelper.groupsBox);
+          for (var change in snapshot.docChanges) {
+            final docId = change.doc.id;
+            if (change.type == DocumentChangeType.removed) {
+              await box.delete(docId);
+            } else {
+              if (change.doc.data() != null) {
+                await box.put(docId, change.doc.data());
+              }
+            }
+          }
+          onChanged();
+        });
+  }
+
+  // Real-time listener for user transactions
+  StreamSubscription<QuerySnapshot>? listenToTransactions(VoidCallback onChanged) {
+    if (!isAuthenticated) return null;
+    return _firestore
+        .collection('users')
+        .doc(_uid)
+        .collection('transactions')
+        .snapshots()
+        .listen((snapshot) async {
+          final box = Hive.box(HiveHelper.transactionsBox);
+          for (var change in snapshot.docChanges) {
+            final docId = change.doc.id;
+            if (change.type == DocumentChangeType.removed) {
+              await box.delete(docId);
+            } else {
+              if (change.doc.data() != null) {
+                await box.put(docId, change.doc.data());
+              }
+            }
+          }
+          onChanged();
+        });
   }
 
   // ─── Profile picture (Firebase Storage) ───────────────────────────────────
@@ -114,9 +295,10 @@ class FirestoreSyncService {
       final file = File(localPath);
       if (!await file.exists()) return;
 
-      final ref = FirebaseStorage.instance.ref('users/$_uid/profile.jpg');
-      await ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
-      final url = await ref.getDownloadURL();
+      // Convert image file to a base64 encoded data URL
+      final bytes = await file.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      final url = 'data:image/jpeg;base64,$base64Image';
 
       // Store URL in Firestore user document (replaces old value)
       await _firestore
@@ -128,24 +310,23 @@ class FirestoreSyncService {
       final settingsBox = Hive.box(HiveHelper.settingsBox);
       await settingsBox.put('profile_picture_url', url);
 
-      debugPrint('Profile picture uploaded to Firebase Storage');
+      debugPrint('Profile picture encoded as base64 and saved to Firestore successfully.');
     } catch (e) {
       debugPrint('Error uploading profile picture: $e');
     }
   }
 
-  /// Delete the profile picture from Storage and remove from Firestore.
+  /// Delete the profile picture from Firestore and local cache.
   Future<void> removeProfilePicture() async {
     if (!isAuthenticated) return;
-    try {
-      await FirebaseStorage.instance
-          .ref('users/$_uid/profile.jpg')
-          .delete();
-    } catch (_) {}
     try {
       await _firestore.collection('users').doc(_uid).update(
             {'photoUrl': FieldValue.delete()},
           );
+      final settingsBox = Hive.box(HiveHelper.settingsBox);
+      await settingsBox.delete('profile_picture_url');
+      await settingsBox.delete('profile_picture_path');
+      debugPrint('Profile picture removed successfully.');
     } catch (e) {
       debugPrint('Error removing profile picture from Firestore: $e');
     }
@@ -220,7 +401,8 @@ class FirestoreSyncService {
       final txBox = Hive.box(HiveHelper.transactionsBox);
       for (var id in txBox.keys) {
         final txMap = Map<String, dynamic>.from(txBox.get(id));
-        await _uploadDocument('transactions', id.toString(), txMap);
+        final tx = TransactionModel.fromMap(txMap);
+        await syncTransaction(tx);
       }
 
       // 2. Budget
@@ -267,7 +449,8 @@ class FirestoreSyncService {
       final groupBox = Hive.box(HiveHelper.groupsBox);
       for (var id in groupBox.keys) {
         final groupMap = Map<String, dynamic>.from(groupBox.get(id));
-        await _uploadDocument('groups', id.toString(), groupMap);
+        final group = GroupModel.fromMap(groupMap);
+        await syncGroup(group);
       }
 
       // 7. Sync user details (XP, name, etc.)
@@ -291,12 +474,14 @@ class FirestoreSyncService {
         final localFile = File(profilePhotoPath);
         if (await localFile.exists()) {
           try {
-            final storageRef = FirebaseStorage.instance.ref('users/$_uid/profile.jpg');
-            await storageRef.putFile(localFile, SettableMetadata(contentType: 'image/jpeg'));
-            final url = await storageRef.getDownloadURL();
+            final bytes = await localFile.readAsBytes();
+            final base64Image = base64Encode(bytes);
+            final url = 'data:image/jpeg;base64,$base64Image';
             profile['photoUrl'] = url;
             await settingsBox.put('profile_picture_url', url);
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('Error converting profile picture to base64 during local to cloud sync: $e');
+          }
         }
       }
       await _firestore.collection('users').doc(_uid).set(profile, SetOptions(merge: true));
@@ -323,20 +508,33 @@ class FirestoreSyncService {
         if (data.containsKey('photoUrl') && data['photoUrl'] != null) {
           final photoUrl = data['photoUrl'] as String;
           await settingsBox.put('profile_picture_url', photoUrl);
-          // Download image from Firebase Storage to a local cache file
-          try {
-            final bytes = await FirebaseStorage.instance
-                .ref('users/$_uid/profile.jpg')
-                .getData(5 * 1024 * 1024); // max 5 MB
-            if (bytes != null) {
+          if (photoUrl.startsWith('data:image')) {
+            try {
+              final base64String = photoUrl.split('base64,').last;
+              final bytes = base64Decode(base64String);
               final tmpDir = await getTemporaryDirectory();
               final cachedFile = File('${tmpDir.path}/profile_cached.jpg');
               await cachedFile.writeAsBytes(bytes);
               await settingsBox.put('profile_picture_path', cachedFile.path);
+            } catch (e) {
+              await settingsBox.put('profile_picture_path', photoUrl);
             }
-          } catch (_) {
-            // Storage download failed — fall back to storing the URL directly
-            await settingsBox.put('profile_picture_path', photoUrl);
+          } else {
+            // Download image from Firebase Storage to a local cache file (legacy support)
+            try {
+              final bytes = await FirebaseStorage.instance
+                  .ref('users/$_uid/profile.jpg')
+                  .getData(5 * 1024 * 1024); // max 5 MB
+              if (bytes != null) {
+                final tmpDir = await getTemporaryDirectory();
+                final cachedFile = File('${tmpDir.path}/profile_cached.jpg');
+                await cachedFile.writeAsBytes(bytes);
+                await settingsBox.put('profile_picture_path', cachedFile.path);
+              }
+            } catch (_) {
+              // Storage download failed — fall back to storing the URL directly
+              await settingsBox.put('profile_picture_path', photoUrl);
+            }
           }
         }
         if (data.containsKey('has_completed_profile_setup')) {

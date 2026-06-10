@@ -12,6 +12,7 @@ import 'package:espenseai/core/services/biometric_service.dart';
 import 'package:espenseai/core/services/firestore_sync_service.dart';
 import 'package:espenseai/core/utils/app_page_route.dart';
 import 'package:espenseai/features/expense/presentation/screens/add_expense_screen.dart';
+import 'package:espenseai/features/expense/presentation/providers/expense_provider.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/analytics_tab.dart';
 import 'tabs/planner_tab.dart';
@@ -31,6 +32,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   bool _isLocked = false;
   late AnimationController _addBtnCtrl;
   late Animation<double> _addBtnScale;
+  StreamSubscription? _groupsSubscription;
+  StreamSubscription? _transactionsSubscription;
 
   final List<Widget> _tabs = [
     const HomeTab(),
@@ -52,13 +55,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _checkBiometricLock();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkFirstTimeUser();
+      _setupRealtimeSync();
     });
   }
 
   @override
   void dispose() {
     _addBtnCtrl.dispose();
+    _groupsSubscription?.cancel();
+    _transactionsSubscription?.cancel();
     super.dispose();
+  }
+
+  void _setupRealtimeSync() {
+    final box = Hive.box(HiveHelper.settingsBox);
+    final isLoggedIn = box.get('is_logged_in', defaultValue: false) as bool;
+    final isGuest = box.get('is_guest_mode', defaultValue: false) as bool;
+
+    if (isLoggedIn && !isGuest) {
+      final syncService = FirestoreSyncService();
+
+      // Push all locally-known groups to every member's Firestore subcollection.
+      // Fixes groups that were created before cross-user sync was active.
+      syncService.backfillGroupsToAllMembers();
+
+      _groupsSubscription = syncService.listenToGroups(() {
+        if (mounted) {
+          ref.read(groupsProvider.notifier).loadGroups();
+        }
+      });
+      _transactionsSubscription = syncService.listenToTransactions(() {
+        if (mounted) {
+          ref.read(transactionProvider.notifier).loadTransactions();
+        }
+      });
+    }
   }
 
   void _checkFirstTimeUser() {
@@ -604,10 +635,11 @@ class _OnboardingProfileSetupDialogState extends State<OnboardingProfileSetupDia
     await box.put('user_name', username);
     await box.put('has_completed_profile_setup', true);
 
-    if (_imagePath != null) {
-      await box.put('profile_picture_path', _imagePath);
+    final imagePath = _imagePath;
+    if (imagePath != null) {
+      await box.put('profile_picture_path', imagePath);
       // Immediately upload the profile picture to Firebase Storage and update Firestore/Hive url.
-      await _syncService.syncProfilePicture(_imagePath);
+      await _syncService.syncProfilePicture(imagePath);
     }
 
     await _syncService.updateProfileName(

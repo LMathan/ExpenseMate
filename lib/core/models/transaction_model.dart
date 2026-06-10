@@ -11,6 +11,10 @@ class TransactionModel {
   final String receiptPath;
   final bool isRecurring;
   final List<String> splitWith;
+  final bool isSettled;
+  final String paidByEmail;
+  final double totalAmount;
+  final String? groupId;
 
   TransactionModel({
     required this.id,
@@ -25,6 +29,10 @@ class TransactionModel {
     required this.receiptPath,
     required this.isRecurring,
     required this.splitWith,
+    this.isSettled = false,
+    this.paidByEmail = '',
+    this.totalAmount = 0.0,
+    this.groupId,
   });
 
   factory TransactionModel.fromMap(Map<dynamic, dynamic> map) {
@@ -41,6 +49,10 @@ class TransactionModel {
       receiptPath: map['receiptPath'] ?? '',
       isRecurring: map['isRecurring'] ?? false,
       splitWith: map['splitWith'] != null ? List<String>.from(map['splitWith']) : [],
+      isSettled: map['isSettled'] ?? false,
+      paidByEmail: map['paidByEmail'] ?? '',
+      totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0.0,
+      groupId: map['groupId'],
     );
   }
 
@@ -58,6 +70,10 @@ class TransactionModel {
       'receiptPath': receiptPath,
       'isRecurring': isRecurring,
       'splitWith': splitWith,
+      'isSettled': isSettled,
+      'paidByEmail': paidByEmail,
+      'totalAmount': totalAmount,
+      'groupId': groupId,
     };
   }
 
@@ -74,6 +90,10 @@ class TransactionModel {
     String? receiptPath,
     bool? isRecurring,
     List<String>? splitWith,
+    bool? isSettled,
+    String? paidByEmail,
+    double? totalAmount,
+    String? groupId,
   }) {
     return TransactionModel(
       id: id ?? this.id,
@@ -88,6 +108,10 @@ class TransactionModel {
       receiptPath: receiptPath ?? this.receiptPath,
       isRecurring: isRecurring ?? this.isRecurring,
       splitWith: splitWith ?? this.splitWith,
+      isSettled: isSettled ?? this.isSettled,
+      paidByEmail: paidByEmail ?? this.paidByEmail,
+      totalAmount: totalAmount ?? this.totalAmount,
+      groupId: groupId ?? this.groupId,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive/hive.dart';
 import 'package:espenseai/core/storage/hive_helper.dart';
@@ -10,6 +11,7 @@ import 'package:espenseai/core/constants/colors.dart';
 import 'package:espenseai/core/constants/text_styles.dart';
 import 'package:espenseai/core/widgets/glass_card.dart';
 import 'package:espenseai/core/models/group_model.dart';
+import 'package:espenseai/core/models/transaction_model.dart';
 import 'package:espenseai/core/services/firestore_sync_service.dart';
 import 'package:espenseai/features/expense/presentation/providers/expense_provider.dart';
 import 'package:espenseai/features/dashboard/presentation/screens/tabs/home_tab.dart';
@@ -99,6 +101,59 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     );
   }
 
+  void _confirmDeleteGroup(BuildContext context, GroupModel group, bool isDark) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Delete Group?',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${group.name}"? This action will remove the group permanently.',
+          style: GoogleFonts.inter(
+            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // Close dialog
+              await ref.read(groupsProvider.notifier).deleteGroup(group.id);
+              if (context.mounted) {
+                Navigator.pop(context); // Go back from GroupDetailsScreen
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('"${group.name}" group deleted successfully.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -128,6 +183,13 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
           icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            tooltip: 'Delete Group',
+            onPressed: () => _confirmDeleteGroup(context, group, isDark),
+          ),
+        ],
       ),
       body: AppBackground(
         type: PageBg.group,
@@ -135,9 +197,17 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  final syncService = FirestoreSyncService();
+                  await syncService.syncCloudToLocal();
+                  ref.read(transactionProvider.notifier).loadTransactions();
+                  ref.read(groupsProvider.notifier).loadGroups();
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Group Info Summary
@@ -262,7 +332,14 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                             return ListTile(
                               leading: (res['photoUrl'] != null && res['photoUrl'].toString().isNotEmpty)
                                   ? CircleAvatar(
-                                      backgroundImage: NetworkImage(res['photoUrl'] as String),
+                                      backgroundImage: () {
+                                        final photoUrl = res['photoUrl'] as String;
+                                        if (photoUrl.startsWith('data:image')) {
+                                          final base64String = photoUrl.split('base64,').last;
+                                          return MemoryImage(base64Decode(base64String)) as ImageProvider;
+                                        }
+                                        return NetworkImage(photoUrl) as ImageProvider;
+                                      }(),
                                       backgroundColor: Colors.transparent,
                                     )
                                   : CircleAvatar(
@@ -417,6 +494,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                   ],
                 ),
               ),
+              ),
             ),
 
             // Bottom Action Area
@@ -477,22 +555,339 @@ class _GroupTransactionHistory extends ConsumerWidget {
     required this.textSecondary,
   });
 
+  void _showSplitDetails(BuildContext context, WidgetRef ref, TransactionModel tx) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final payerEmail = tx.paidByEmail.isNotEmpty ? tx.paidByEmail : (currentUser?.email ?? '');
+    
+    // Resolve who paid display name
+    String payerName = 'Unknown';
+    if (payerEmail == currentUser?.email) {
+      payerName = 'You';
+    } else {
+      final idx = group.memberEmails.indexOf(payerEmail);
+      if (idx != -1) {
+        payerName = group.memberNames[idx];
+      } else {
+        payerName = payerEmail.split('@').first;
+      }
+    }
+    
+    final formattedDate = DateFormat('MMMM dd, yyyy • hh:mm a').format(tx.date);
+    final perHeadAmount = tx.splitWith.isNotEmpty 
+        ? (tx.totalAmount > 0 ? tx.totalAmount / (tx.splitWith.length + 1) : tx.amount)
+        : tx.amount;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final isPayer = payerEmail == currentUser?.email;
+        
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.cardDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Category emoji & title
+              Row(
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPurple.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(getCategoryEmoji(tx.category), style: const TextStyle(fontSize: 24)),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tx.merchant.isEmpty ? tx.category : tx.merchant,
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(formattedDate, style: TextStyle(fontSize: 11, color: textSecondary)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // Split Summary Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.bgDark.withValues(alpha: 0.5) : Colors.grey[50],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total Bill', style: TextStyle(color: textSecondary, fontSize: 13)),
+                        Text(
+                          '₹${(tx.totalAmount > 0 ? tx.totalAmount : tx.amount * (tx.splitWith.length + 1)).toStringAsFixed(2)}',
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Paid By', style: TextStyle(color: textSecondary, fontSize: 13)),
+                        Text(
+                          payerName,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.electricBlue),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Your Share', style: TextStyle(color: textSecondary, fontSize: 13)),
+                        Text(
+                          '₹${perHeadAmount.toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accentPink),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Settlement Status', style: TextStyle(color: textSecondary, fontSize: 13)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (tx.isSettled ? AppColors.emeraldGreen : AppColors.accentOrange).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            tx.isSettled ? 'Settled ✓' : 'Pending',
+                            style: TextStyle(
+                              color: tx.isSettled ? AppColors.emeraldGreen : AppColors.accentOrange,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Split breakdown list
+              Text(
+                'SPLIT BREAKDOWN',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.electricBlue,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // Render split member rows
+              ...List.generate(group.memberNames.length, (i) {
+                final name = group.memberNames[i];
+                final email = group.memberEmails[i];
+                final isMemberPayer = email == payerEmail;
+                final isMe = email == currentUser?.email;
+                
+                String statusText;
+                Color statusColor;
+                if (isMemberPayer) {
+                  statusText = 'Paid total bill';
+                  statusColor = AppColors.electricBlue;
+                } else if (tx.isSettled) {
+                  statusText = 'Settled';
+                  statusColor = AppColors.emeraldGreen;
+                } else {
+                  statusText = 'Owes ₹${perHeadAmount.toStringAsFixed(0)}';
+                  statusColor = AppColors.accentOrange;
+                }
+                
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: isMemberPayer 
+                            ? AppColors.electricBlue.withValues(alpha: 0.15) 
+                            : AppColors.primaryPurple.withValues(alpha: 0.1),
+                        child: Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                          style: TextStyle(
+                            color: isMemberPayer ? AppColors.electricBlue : AppColors.primaryPurple,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isMe ? '$name (You)' : name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(email, style: TextStyle(fontSize: 10, color: textSecondary)),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              
+              const SizedBox(height: 32),
+              
+              // Settlement Button Flow
+              if (!tx.isSettled) ...[
+                if (isPayer)
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final updatedTx = tx.copyWith(isSettled: true);
+                      await ref.read(transactionProvider.notifier).editTransaction(updatedTx);
+                      if (ctx.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Split successfully marked as settled!'),
+                            backgroundColor: AppColors.emeraldGreen,
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+                    label: const Text('Confirm Payment Received'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.emeraldGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentOrange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.hourglass_empty, color: AppColors.accentOrange, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Waiting for $payerName to confirm receipt and mark as settled.',
+                            style: const TextStyle(color: AppColors.accentOrange, fontSize: 11, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.emeraldGreen.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle, color: AppColors.emeraldGreen, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'All splits for this expense are settled!',
+                        style: TextStyle(color: AppColors.emeraldGreen, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final allTxs = ref.watch(transactionProvider);
-    // Show transactions belonging to any group member
-    final groupTxs = allTxs
-        .where((tx) => tx.splitWith.any((uid) => group.memberUids.contains(uid)) || group.memberUids.contains(tx.splitWith.firstOrNull))
-        .toList()
+    
+    // Filter transactions belonging strictly to this group
+    final display = allTxs.where((tx) {
+      if (tx.groupId == group.id) return true;
+      // Fallback for legacy transactions
+      if (tx.groupId == null || tx.groupId!.isEmpty) {
+        return tx.notes.contains('in group ${group.name}.') ||
+               tx.merchant.contains('(${group.name})');
+      }
+      return false;
+    }).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
-
-    // Also show all transactions by the group creator (current user) that have splitWith
-    final splitTxs = allTxs
-        .where((tx) => tx.splitWith.isNotEmpty)
-        .where((tx) => !groupTxs.contains(tx))
-        .toList();
-    final combined = [...groupTxs, ...splitTxs]..sort((a, b) => b.date.compareTo(a.date));
-    final display = combined.take(10).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -562,111 +957,131 @@ class _GroupTransactionHistory extends ConsumerWidget {
               final tx = display[index];
               final formattedDate = DateFormat('MMM dd, yyyy • hh:mm a').format(tx.date);
               final perHead = tx.splitWith.isNotEmpty
-                  ? tx.amount / (tx.splitWith.length + 1)
+                  ? (tx.totalAmount > 0 ? tx.totalAmount / (tx.splitWith.length + 1) : tx.amount)
                   : tx.amount;
 
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.cardDark : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryPurple.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(getCategoryEmoji(tx.category), style: const TextStyle(fontSize: 20)),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tx.merchant.isEmpty ? tx.category : tx.merchant,
-                                style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(formattedDate, style: TextStyle(fontSize: 10, color: textSecondary)),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '₹${tx.amount.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: AppColors.accentPink,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            if (tx.splitWith.isNotEmpty)
-                              Text(
-                                '÷ ${tx.splitWith.length + 1} = ₹${perHead.toStringAsFixed(0)}/person',
-                                style: TextStyle(color: textSecondary, fontSize: 9),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    if (tx.splitWith.isNotEmpty || tx.notes.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+              return GestureDetector(
+                onTap: () => _showSplitDetails(context, ref, tx),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.cardDark : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            width: 42,
+                            height: 42,
+                            alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: AppColors.primaryPurple.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(tx.category, style: const TextStyle(color: AppColors.primaryPurple, fontSize: 10, fontWeight: FontWeight.w600)),
+                            child: Text(getCategoryEmoji(tx.category), style: const TextStyle(fontSize: 20)),
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppColors.electricBlue.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tx.merchant.isEmpty ? tx.category : tx.merchant,
+                                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(formattedDate, style: TextStyle(fontSize: 10, color: textSecondary)),
+                              ],
                             ),
-                            child: Text(tx.paymentMethod, style: const TextStyle(color: AppColors.electricBlue, fontSize: 10, fontWeight: FontWeight.w600)),
                           ),
-                          if (tx.splitWith.isNotEmpty) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '₹${(tx.totalAmount > 0 ? tx.totalAmount : tx.amount * (tx.splitWith.length + 1)).toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  color: AppColors.accentPink,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              if (tx.splitWith.isNotEmpty) ...[
+                                Text(
+                                  '÷ ${tx.splitWith.length + 1} = ₹${perHead.toStringAsFixed(0)}/person',
+                                  style: TextStyle(color: textSecondary, fontSize: 9),
+                                ),
+                                if (tx.isSettled)
+                                  const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check_circle, color: AppColors.emeraldGreen, size: 10),
+                                      SizedBox(width: 2),
+                                      Text(
+                                        'Settled',
+                                        style: TextStyle(color: AppColors.emeraldGreen, fontSize: 8, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                      if (tx.splitWith.isNotEmpty || tx.notes.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryPurple.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(tx.category, style: const TextStyle(color: AppColors.primaryPurple, fontSize: 10, fontWeight: FontWeight.w600)),
+                            ),
                             const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppColors.emeraldGreen.withValues(alpha: 0.1),
+                                color: AppColors.electricBlue.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text(
-                                'Split ${tx.splitWith.length + 1} ways',
-                                style: const TextStyle(color: AppColors.emeraldGreen, fontSize: 10, fontWeight: FontWeight.w600),
-                              ),
+                              child: Text(tx.paymentMethod, style: const TextStyle(color: AppColors.electricBlue, fontSize: 10, fontWeight: FontWeight.w600)),
                             ),
+                            if (tx.splitWith.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: (tx.isSettled ? AppColors.emeraldGreen : AppColors.accentOrange).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  tx.isSettled ? 'Settled ✓' : 'Split ${tx.splitWith.length + 1} ways',
+                                  style: TextStyle(
+                                    color: tx.isSettled ? AppColors.emeraldGreen : AppColors.accentOrange,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               );
             },
@@ -770,7 +1185,10 @@ class _GroupMemberAvatarState extends State<GroupMemberAvatar> {
   Widget build(BuildContext context) {
     if (_photoUrl != null && _photoUrl!.isNotEmpty) {
       ImageProvider imageProvider;
-      if (!_photoUrl!.startsWith('http') && File(_photoUrl!).existsSync()) {
+      if (_photoUrl!.startsWith('data:image')) {
+        final base64String = _photoUrl!.split('base64,').last;
+        imageProvider = MemoryImage(base64Decode(base64String));
+      } else if (!_photoUrl!.startsWith('http') && File(_photoUrl!).existsSync()) {
         imageProvider = FileImage(File(_photoUrl!));
       } else {
         imageProvider = NetworkImage(_photoUrl!);

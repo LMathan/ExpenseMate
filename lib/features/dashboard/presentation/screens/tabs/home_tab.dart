@@ -13,6 +13,7 @@ import 'package:espenseai/core/services/ocr_service.dart';
 import 'package:espenseai/core/services/firestore_sync_service.dart';
 import 'package:espenseai/core/utils/app_page_route.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:hive/hive.dart';
 import 'package:espenseai/core/storage/hive_helper.dart';
@@ -390,9 +391,15 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final weeklyTrend = [1200.0, 4500.0, 1800.0, 950.0, 3200.0, 450.0, 2000.0];
 
     final String? profilePicPath = settingsBox.get('profile_picture_path') as String?;
-    final imageProvider = (profilePicPath != null && File(profilePicPath).existsSync())
-        ? FileImage(File(profilePicPath)) as ImageProvider
-        : const NetworkImage('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150');
+    final ImageProvider imageProvider;
+    if (profilePicPath != null && profilePicPath.startsWith('data:image')) {
+      final base64String = profilePicPath.split('base64,').last;
+      imageProvider = MemoryImage(base64Decode(base64String));
+    } else if (profilePicPath != null && File(profilePicPath).existsSync()) {
+      imageProvider = FileImage(File(profilePicPath));
+    } else {
+      imageProvider = const NetworkImage('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150');
+    }
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
@@ -401,8 +408,15 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         child: SafeArea(
           child: RefreshIndicator(
           onRefresh: () async {
+            final syncService = FirestoreSyncService();
+            await syncService.syncCloudToLocal();
             ref.read(transactionProvider.notifier).loadTransactions();
+            ref.read(groupsProvider.notifier).loadGroups();
             ref.read(budgetProvider.notifier).loadBudget();
+            ref.read(goalsProvider.notifier).loadGoals();
+            ref.read(subscriptionsProvider.notifier).loadSubscriptions();
+            ref.read(billsProvider.notifier).loadBills();
+            ref.read(challengesProvider.notifier).loadChallenges();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -1553,6 +1567,8 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
     }
 
     final otherEmails = widget.group.memberEmails.where((e) => e != currentUser?.email).toList();
+    final payerIndex = widget.group.memberUids.indexOf(_whoPaidUid);
+    final paidByEmail = payerIndex != -1 ? widget.group.memberEmails[payerIndex] : currentUser?.email ?? '';
 
     ref.read(transactionProvider.notifier).addTransaction(
       amount: myShare,
@@ -1562,6 +1578,10 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
       paymentMethod: _paymentMethod,
       date: DateTime.now(),
       splitWith: otherEmails,
+      isSettled: false,
+      paidByEmail: paidByEmail,
+      totalAmount: amount,
+      groupId: widget.group.id,
     );
 
     Navigator.pop(context);

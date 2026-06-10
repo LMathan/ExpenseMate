@@ -41,6 +41,10 @@ class TransactionNotifier extends StateNotifier<List<TransactionModel>> {
     bool isApproved = true,
     bool isRecurring = false,
     List<String> splitWith = const [],
+    bool isSettled = false,
+    String paidByEmail = '',
+    double totalAmount = 0.0,
+    String? groupId,
   }) async {
     final box = Hive.box(HiveHelper.transactionsBox);
     final id = const Uuid().v4();
@@ -57,6 +61,10 @@ class TransactionNotifier extends StateNotifier<List<TransactionModel>> {
       receiptPath: '',
       isRecurring: isRecurring,
       splitWith: splitWith,
+      isSettled: isSettled,
+      paidByEmail: paidByEmail,
+      totalAmount: totalAmount,
+      groupId: groupId,
     );
 
     await box.put(id, tx.toMap());
@@ -395,6 +403,13 @@ class GroupsNotifier extends StateNotifier<List<GroupModel>> {
       _syncService.syncGroup(updated);
       loadGroups();
     }
+  }
+
+  Future<void> deleteGroup(String groupId) async {
+    final box = Hive.box(HiveHelper.groupsBox);
+    await box.delete(groupId);
+    _syncService.deleteGroup(groupId);
+    loadGroups();
   }
 }
 
