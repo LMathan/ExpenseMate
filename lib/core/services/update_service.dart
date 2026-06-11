@@ -322,6 +322,10 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
                 _hasError = true;
                 _statusMessage = 'Downloaded package checksum mismatch.';
                 break;
+              case OtaStatus.INSTALLATION_ERROR:
+                _hasError = true;
+                _statusMessage = 'Installation failed.';
+                break;
             }
           });
 
