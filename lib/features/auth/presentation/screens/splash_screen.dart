@@ -6,6 +6,7 @@ import 'package:espenseai/core/constants/colors.dart';
 import 'package:espenseai/features/auth/presentation/providers/auth_provider.dart';
 import 'onboarding_screen.dart';
 import 'package:espenseai/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:espenseai/core/services/update_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -72,6 +73,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void _checkRedirect() async {
     await Future.delayed(const Duration(milliseconds: 3000));
     if (!mounted) return;
+
+    // Check for available OTA updates (Android only)
+    await UpdateService.checkAndPromptUpdate(context);
+    if (!mounted) return;
+
     final authState = ref.read(authProvider);
     if (authState.status == AuthStatus.authenticated || authState.status == AuthStatus.guest) {
       Navigator.pushReplacement(context, _fadeRoute(const DashboardScreen()));
