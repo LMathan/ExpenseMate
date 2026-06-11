@@ -4,6 +4,7 @@ class GroupModel {
   final List<String> memberNames;
   final List<String> memberEmails;
   final List<String> memberUids;
+  final String createdBy;
 
   GroupModel({
     required this.id,
@@ -11,6 +12,7 @@ class GroupModel {
     required this.memberNames,
     required this.memberEmails,
     required this.memberUids,
+    required this.createdBy,
   });
 
   factory GroupModel.fromMap(Map<dynamic, dynamic> map) {
@@ -20,6 +22,7 @@ class GroupModel {
       memberNames: List<String>.from(map['memberNames'] ?? []),
       memberEmails: List<String>.from(map['memberEmails'] ?? []),
       memberUids: List<String>.from(map['memberUids'] ?? []),
+      createdBy: map['createdBy'] ?? '',
     );
   }
 
@@ -30,6 +33,7 @@ class GroupModel {
       'memberNames': memberNames,
       'memberEmails': memberEmails,
       'memberUids': memberUids,
+      'createdBy': createdBy,
     };
   }
 }

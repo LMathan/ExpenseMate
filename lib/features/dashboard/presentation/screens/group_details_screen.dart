@@ -101,6 +101,70 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     );
   }
 
+  void _showEditGroupNameDialog(BuildContext context, GroupModel group, bool isDark) {
+    final nameController = TextEditingController(text: group.name);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Edit Group Name',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        content: TextField(
+          controller: nameController,
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+          decoration: InputDecoration(
+            hintText: 'Enter group name',
+            hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
+            ),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(color: AppColors.primaryPurple),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = nameController.text.trim();
+              if (newName.isNotEmpty) {
+                Navigator.pop(ctx);
+                await ref.read(groupsProvider.notifier).editGroupName(group.id, newName);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Group name updated to "$newName"'),
+                      backgroundColor: AppColors.emeraldGreen,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryPurple,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmDeleteGroup(BuildContext context, GroupModel group, bool isDark) {
     showDialog(
       context: context,
@@ -165,6 +229,8 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
       (g) => g.id == widget.groupId,
       orElse: () => widget.initialGroup,
     );
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final isOwner = group.createdBy.isEmpty || group.createdBy == currentUid;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -184,11 +250,12 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-            tooltip: 'Delete Group',
-            onPressed: () => _confirmDeleteGroup(context, group, isDark),
-          ),
+          if (isOwner)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              tooltip: 'Delete Group',
+              onPressed: () => _confirmDeleteGroup(context, group, isDark),
+            ),
         ],
       ),
       body: AppBackground(
@@ -240,13 +307,26 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  group.name,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: textColor,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        group.name,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: textColor,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isOwner)
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.primaryPurple),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _showEditGroupNameDialog(context, group, isDark),
+                                      ),
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
                                 Text(

@@ -15,6 +15,7 @@ class TransactionModel {
   final String paidByEmail;
   final double totalAmount;
   final String? groupId;
+  final String? createdBy;
 
   TransactionModel({
     required this.id,
@@ -33,6 +34,7 @@ class TransactionModel {
     this.paidByEmail = '',
     this.totalAmount = 0.0,
     this.groupId,
+    this.createdBy,
   });
 
   factory TransactionModel.fromMap(Map<dynamic, dynamic> map) {
@@ -53,6 +55,7 @@ class TransactionModel {
       paidByEmail: map['paidByEmail'] ?? '',
       totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0.0,
       groupId: map['groupId'],
+      createdBy: map['createdBy'],
     );
   }
 
@@ -74,6 +77,7 @@ class TransactionModel {
       'paidByEmail': paidByEmail,
       'totalAmount': totalAmount,
       'groupId': groupId,
+      'createdBy': createdBy,
     };
   }
 
@@ -94,6 +98,7 @@ class TransactionModel {
     String? paidByEmail,
     double? totalAmount,
     String? groupId,
+    String? createdBy,
   }) {
     return TransactionModel(
       id: id ?? this.id,
@@ -112,6 +117,7 @@ class TransactionModel {
       paidByEmail: paidByEmail ?? this.paidByEmail,
       totalAmount: totalAmount ?? this.totalAmount,
       groupId: groupId ?? this.groupId,
+      createdBy: createdBy ?? this.createdBy,
     );
   }
 }

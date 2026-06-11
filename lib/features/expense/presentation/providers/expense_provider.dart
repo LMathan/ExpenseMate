@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/storage/hive_helper.dart';
 import '../../../../core/services/firestore_sync_service.dart';
 import '../../../../core/models/transaction_model.dart';
@@ -45,9 +46,11 @@ class TransactionNotifier extends StateNotifier<List<TransactionModel>> {
     String paidByEmail = '',
     double totalAmount = 0.0,
     String? groupId,
+    String? createdBy,
   }) async {
     final box = Hive.box(HiveHelper.transactionsBox);
     final id = const Uuid().v4();
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
     final tx = TransactionModel(
       id: id,
       amount: amount,
@@ -65,6 +68,7 @@ class TransactionNotifier extends StateNotifier<List<TransactionModel>> {
       paidByEmail: paidByEmail,
       totalAmount: totalAmount,
       groupId: groupId,
+      createdBy: createdBy ?? currentUid,
     );
 
     await box.put(id, tx.toMap());
@@ -361,6 +365,7 @@ class GroupsNotifier extends StateNotifier<List<GroupModel>> {
     final memberNames = members.map((m) => m['displayName'] as String).toList();
     final memberEmails = members.map((m) => m['email'] as String).toList();
     final memberUids = members.map((m) => m['uid'] as String).toList();
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     final group = GroupModel(
       id: id,
@@ -368,6 +373,7 @@ class GroupsNotifier extends StateNotifier<List<GroupModel>> {
       memberNames: memberNames,
       memberEmails: memberEmails,
       memberUids: memberUids,
+      createdBy: currentUid,
     );
 
     await box.put(id, group.toMap());
@@ -397,6 +403,7 @@ class GroupsNotifier extends StateNotifier<List<GroupModel>> {
         memberNames: updatedNames,
         memberEmails: updatedEmails,
         memberUids: updatedUids,
+        createdBy: group.createdBy,
       );
 
       await box.put(groupId, updated.toMap());
@@ -410,6 +417,25 @@ class GroupsNotifier extends StateNotifier<List<GroupModel>> {
     await box.delete(groupId);
     _syncService.deleteGroup(groupId);
     loadGroups();
+  }
+
+  Future<void> editGroupName(String groupId, String newName) async {
+    final box = Hive.box(HiveHelper.groupsBox);
+    final item = box.get(groupId);
+    if (item != null) {
+      final group = GroupModel.fromMap(Map<dynamic, dynamic>.from(item));
+      final updated = GroupModel(
+        id: group.id,
+        name: newName,
+        memberNames: group.memberNames,
+        memberEmails: group.memberEmails,
+        memberUids: group.memberUids,
+        createdBy: group.createdBy,
+      );
+      await box.put(groupId, updated.toMap());
+      _syncService.syncGroup(updated);
+      loadGroups();
+    }
   }
 }
 

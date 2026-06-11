@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "336688323027-ifd6h4725ul5ob52s7trqsmi4onpe21q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mathan.espenseai",
+            "certificate_hash": "af2e6a08c0f62aa7d9615d6217c64e9948b64170"
+          }
+        },
+        {
           "client_id": "336688323027-k5ef32uf7cmvj25s05t0ppunmpie9fii.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

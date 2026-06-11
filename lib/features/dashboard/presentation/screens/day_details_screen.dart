@@ -9,6 +9,7 @@ import 'package:espenseai/core/utils/app_page_route.dart';
 import 'package:espenseai/features/expense/presentation/providers/expense_provider.dart';
 import 'package:espenseai/features/expense/presentation/screens/add_expense_screen.dart';
 import 'package:espenseai/core/widgets/vector_illustrations.dart';
+import 'package:espenseai/core/utils/transaction_permissions.dart';
 
 class DayDetailsScreen extends ConsumerWidget {
   final DateTime date;
@@ -181,6 +182,7 @@ class DayDetailsScreen extends ConsumerWidget {
                           onDelete: () => _confirmDelete(
                               context, ref, e.value, isDark, textColor,
                               textSecondary),
+                          showActions: canEditTransaction(e.value, ref),
                         )),
                     const SizedBox(height: 24),
                   ],
@@ -334,6 +336,7 @@ class _TransactionCard extends StatelessWidget {
   final Color textColor, textSecondary;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final bool showActions;
 
   const _TransactionCard({
     required this.tx,
@@ -343,6 +346,7 @@ class _TransactionCard extends StatelessWidget {
     required this.textSecondary,
     required this.onEdit,
     required this.onDelete,
+    required this.showActions,
   });
 
   @override
@@ -438,23 +442,25 @@ class _TransactionCard extends StatelessWidget {
                         fontSize: 14)),
               ],
             ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _ActionBtn(
-                    label: 'Edit',
-                    icon: Icons.edit_rounded,
-                    color: AppColors.electricBlue,
-                    onTap: onEdit),
-                const SizedBox(width: 8),
-                _ActionBtn(
-                    label: 'Delete',
-                    icon: Icons.delete_outline_rounded,
-                    color: Colors.redAccent,
-                    onTap: onDelete),
-              ],
-            ),
+            if (showActions) ...[
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _ActionBtn(
+                      label: 'Edit',
+                      icon: Icons.edit_rounded,
+                      color: AppColors.electricBlue,
+                      onTap: onEdit),
+                  const SizedBox(width: 8),
+                  _ActionBtn(
+                      label: 'Delete',
+                      icon: Icons.delete_outline_rounded,
+                      color: Colors.redAccent,
+                      onTap: onDelete),
+                ],
+              ),
+            ],
           ],
         ),
       ),

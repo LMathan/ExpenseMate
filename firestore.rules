@@ -3,19 +3,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── User profiles ────────────────────────────────────────────────────────
+    // ─── App config / Updates ───────────────────────────────────────────────
+    // Allows any user (even unauthenticated) to check for app updates.
+    match /app_config/{document} {
+      allow read: if true;
+      allow write: if false; // Only manageable via Firebase console
+    }
+
+    // ─── User profiles ──────────────────────────────────────────────────────
     match /users/{userId} {
-      // Any authenticated user can read profiles (needed for name/email search).
+      // Any authenticated user can read profiles (for name/email search & group invite)
       allow read: if request.auth != null;
 
-      // Only the owner writes their own profile document.
+      // Only the owner can write their own profile document
       allow write: if request.auth != null && request.auth.uid == userId;
 
-      // ── Groups subcollection ─────────────────────────────────────────────
-      // A group document may be created/updated by any authenticated user whose
-      // UID appears in the document's memberUids list — this lets User A push the
-      // group to User B's subcollection when B is a member.
-      // Only the owner (B) may delete documents from their own subcollection.
+      // ── Groups ───────────────────────────────────────────────────────────
+      // Any member of the group can push it to another member's subcollection.
+      // Only the owner can delete from their own subcollection.
       match /groups/{groupId} {
         allow read: if request.auth != null && request.auth.uid == userId;
         allow create, update: if request.auth != null
@@ -24,10 +29,10 @@ service cloud.firestore {
         allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
-      // ── Transactions subcollection ───────────────────────────────────────
+      // ── Transactions ─────────────────────────────────────────────────────
       // Owner can always write their own transactions.
-      // Any authenticated user may also push a group transaction (groupId != '')
-      // to another member's subcollection so every member sees split expenses.
+      // Any authenticated user can push a group transaction (groupId != '')
+      // to another member's subcollection so split expenses appear for everyone.
       match /transactions/{txId} {
         allow read: if request.auth != null && request.auth.uid == userId;
         allow create, update: if request.auth != null
@@ -38,10 +43,7 @@ service cloud.firestore {
         allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
-      // ── All other private subcollections ─────────────────────────────────
-      // Retention policy: the app calls cleanupOldData() on every sync and a
-      // Firebase Console TTL policy on the `expireAt` Timestamp field handles
-      // server-side auto-deletion for transactions.
+      // ── All other subcollections (budgets, goals, bills, subscriptions…) ─
       match /{subCollection=**} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }

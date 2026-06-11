@@ -7,6 +7,7 @@ import 'package:espenseai/core/utils/category_emoji_helper.dart';
 import 'package:espenseai/core/widgets/glass_card.dart';
 import 'package:espenseai/features/expense/presentation/providers/expense_provider.dart';
 import 'package:espenseai/features/expense/presentation/screens/add_expense_screen.dart';
+import 'package:espenseai/core/utils/transaction_permissions.dart';
 
 class ExpenseHistoryScreen extends ConsumerStatefulWidget {
   const ExpenseHistoryScreen({super.key});
@@ -288,68 +289,69 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
             ),
           ],
 
-          const SizedBox(height: 10),
-
-          // Action buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _ActionBtn(
-                label: 'Edit',
-                icon: Icons.edit_rounded,
-                color: AppColors.electricBlue,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => AddExpenseScreen(
-                      editTransaction: tx,
-                      preFilledAmount: tx.amount,
-                      preFilledCategory: tx.category,
-                      preFilledMerchant: tx.merchant,
-                      preFilledNotes: tx.notes,
+          if (canEditTransaction(tx, ref)) ...[
+            const SizedBox(height: 10),
+            // Action buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _ActionBtn(
+                  label: 'Edit',
+                  icon: Icons.edit_rounded,
+                  color: AppColors.electricBlue,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AddExpenseScreen(
+                        editTransaction: tx,
+                        preFilledAmount: tx.amount,
+                        preFilledCategory: tx.category,
+                        preFilledMerchant: tx.merchant,
+                        preFilledNotes: tx.notes,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _ActionBtn(
-                label: 'Delete',
-                icon: Icons.delete_outline_rounded,
-                color: Colors.redAccent,
-                onTap: () {
-                  final isDarkLocal = Theme.of(context).brightness == Brightness.dark;
-                  showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      backgroundColor: isDarkLocal ? AppColors.cardDark : Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      title: Text('Delete Transaction',
-                          style: TextStyle(color: isDarkLocal ? Colors.white : AppColors.textPrimaryLight, fontWeight: FontWeight.bold)),
-                      content: Text('Delete this transaction permanently?',
-                          style: TextStyle(color: isDarkLocal ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            ref.read(transactionProvider.notifier).deleteTransaction(tx.id);
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Transaction deleted'), backgroundColor: AppColors.accentPink),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-                          child: const Text('Delete'),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                _ActionBtn(
+                  label: 'Delete',
+                  icon: Icons.delete_outline_rounded,
+                  color: Colors.redAccent,
+                  onTap: () {
+                    final isDarkLocal = Theme.of(context).brightness == Brightness.dark;
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        backgroundColor: isDarkLocal ? AppColors.cardDark : Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        title: Text('Delete Transaction',
+                            style: TextStyle(color: isDarkLocal ? Colors.white : AppColors.textPrimaryLight, fontWeight: FontWeight.bold)),
+                        content: Text('Delete this transaction permanently?',
+                            style: TextStyle(color: isDarkLocal ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              ref.read(transactionProvider.notifier).deleteTransaction(tx.id);
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Transaction deleted'), backgroundColor: AppColors.accentPink),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

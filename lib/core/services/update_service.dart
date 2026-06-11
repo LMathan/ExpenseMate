@@ -25,16 +25,18 @@ class UpdateService {
       final data = doc.data();
       if (data == null) return;
 
-      final latestVersionCode = data['latest_version_code'] as int?;
+      final latestVersionCode = (data['latest_version_code'] as num?)?.toInt();
       final latestVersionName = data['latest_version_name'] as String? ?? '1.0.0';
       final apkUrl = data['apk_url'] as String? ?? '';
       final releaseNotes = data['release_notes'] as String? ?? 'Bug fixes and performance improvements.';
-      final minRequiredVersion = data['min_required_version'] as int? ?? 0;
+      final minRequiredVersion = (data['min_required_version'] as num?)?.toInt() ?? 0;
 
       if (latestVersionCode == null || apkUrl.isEmpty) return;
 
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersionCode = int.tryParse(packageInfo.buildNumber) ?? 0;
+
+      debugPrint('OTA Update Check: latestVersionCode=$latestVersionCode, currentVersionCode=$currentVersionCode, apkUrl=$apkUrl, minRequiredVersion=$minRequiredVersion');
 
       if (latestVersionCode > currentVersionCode) {
         final isForced = currentVersionCode < minRequiredVersion;
@@ -325,6 +327,14 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
               case OtaStatus.INSTALLATION_ERROR:
                 _hasError = true;
                 _statusMessage = 'Installation failed.';
+                break;
+              case OtaStatus.CANCELED:
+                _hasError = true;
+                _statusMessage = 'Update was canceled.';
+                break;
+              default:
+                _hasError = true;
+                _statusMessage = 'An unexpected update status occurred.';
                 break;
             }
           });

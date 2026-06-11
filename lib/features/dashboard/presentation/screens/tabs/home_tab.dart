@@ -22,6 +22,7 @@ import 'package:espenseai/features/expense/presentation/screens/add_expense_scre
 import 'package:espenseai/features/expense/presentation/screens/expense_history_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:espenseai/core/models/group_model.dart';
+import 'package:espenseai/core/utils/transaction_permissions.dart';
 import '../group_details_screen.dart';
 import '../create_group_screen.dart';
 import 'profile_tab.dart';
@@ -899,70 +900,72 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                 '-₹${tx.amount.toStringAsFixed(2)}',
                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.accentPink, fontSize: 14),
               ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      AppPageRoute(
-                        page: AddExpenseScreen(
-                          editTransaction: tx,
-                          preFilledAmount: tx.amount,
-                          preFilledCategory: tx.category,
-                          preFilledMerchant: tx.merchant,
-                          preFilledNotes: tx.notes,
+              if (canEditTransaction(tx, ref)) ...[
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        AppPageRoute(
+                          page: AddExpenseScreen(
+                            editTransaction: tx,
+                            preFilledAmount: tx.amount,
+                            preFilledCategory: tx.category,
+                            preFilledMerchant: tx.merchant,
+                            preFilledNotes: tx.notes,
+                          ),
                         ),
                       ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.electricBlue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.edit_rounded, color: AppColors.electricBlue, size: 13),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          backgroundColor: isDark ? AppColors.cardDark : Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          title: Text('Delete Transaction', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                          content: Text('Are you sure you want to delete this transaction?', style: TextStyle(color: subColor)),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: subColor))),
-                            ElevatedButton(
-                              onPressed: () {
-                                ref.read(transactionProvider.notifier).deleteTransaction(tx.id);
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Transaction deleted'), backgroundColor: AppColors.accentPink),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-                              child: const Text('Delete'),
-                            ),
-                          ],
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.electricBlue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        child: const Icon(Icons.edit_rounded, color: AppColors.electricBlue, size: 13),
                       ),
-                      child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 13),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            title: Text('Delete Transaction', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                            content: Text('Are you sure you want to delete this transaction?', style: TextStyle(color: subColor)),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: subColor))),
+                              ElevatedButton(
+                                onPressed: () {
+                                  ref.read(transactionProvider.notifier).deleteTransaction(tx.id);
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Transaction deleted'), backgroundColor: AppColors.accentPink),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                                child: const Text('Delete'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],
