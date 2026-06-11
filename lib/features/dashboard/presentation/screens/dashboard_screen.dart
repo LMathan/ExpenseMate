@@ -17,6 +17,7 @@ import 'tabs/home_tab.dart';
 import 'tabs/analytics_tab.dart';
 import 'tabs/planner_tab.dart';
 import 'tabs/profile_tab.dart';
+import 'package:espenseai/features/auth/presentation/providers/auth_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
