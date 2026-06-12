@@ -390,7 +390,15 @@ class _HomeTabState extends ConsumerState<HomeTab> {
 
     final remaining = budget.monthlyIncome - currentMonthSpent;
     final progress = budget.monthlyIncome > 0 ? (currentMonthSpent / budget.monthlyIncome).clamp(0.0, 1.0) : 0.0;
-    final weeklyTrend = [1200.0, 4500.0, 1800.0, 950.0, 3200.0, 450.0, 2000.0];
+    
+    final Map<String, double> categorySpending = {};
+    for (var tx in txs) {
+      if (tx.date.compareTo(cycleStart) >= 0) {
+        categorySpending[tx.category] = (categorySpending[tx.category] ?? 0.0) + tx.amount;
+      }
+    }
+    final sortedCategories = categorySpending.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     final hour = DateTime.now().hour;
     final String greeting;
@@ -748,22 +756,120 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'WEEKLY SPENDING',
+                      'TOP SPENDING CATEGORIES',
                       style: AppTextStyles.caption(isDark: isDark).copyWith(
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.0,
                       ),
                     ),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textSecondaryDark),
                   ],
                 ),
                 const SizedBox(height: 12),
                 GlassCard(
-                  child: InteractiveChart(
-                    type: ChartType.line,
-                    data: const {},
-                    trendData: weeklyTrend,
-                    labels: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: sortedCategories.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16.0),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.pie_chart_outline_rounded,
+                                      color: isDark
+                                          ? AppColors.textSecondaryDark
+                                          : AppColors.textSecondaryLight,
+                                      size: 32),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'No spending in the current cycle yet.',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? AppColors.textSecondaryDark
+                                          : AppColors.textSecondaryLight,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: sortedCategories.take(3).map((entry) {
+                              final cat = entry.key;
+                              final amt = entry.value;
+                              final pct = currentMonthSpent > 0 ? amt / currentMonthSpent : 0.0;
+                              
+                              final barColors = [
+                                AppColors.primaryPurple,
+                                AppColors.electricBlue,
+                                AppColors.emeraldGreen,
+                                AppColors.accentOrange,
+                                AppColors.accentPink,
+                              ];
+                              
+                              final idx = sortedCategories.indexOf(entry);
+                              final barColor = barColors[idx % barColors.length];
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(getCategoryEmoji(cat),
+                                            style: const TextStyle(fontSize: 16)),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            cat,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: isDark ? Colors.white : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '₹${amt.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark ? Colors.white : Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '(${(pct * 100).toStringAsFixed(0)}%)',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark
+                                                ? AppColors.textSecondaryDark
+                                                : AppColors.textSecondaryLight,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: pct,
+                                        backgroundColor: isDark
+                                            ? Colors.white10
+                                            : Colors.black12,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          barColor,
+                                        ),
+                                        minHeight: 6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
                   ),
                 ),
 
@@ -1296,14 +1402,54 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
     super.dispose();
   }
 
+  void _showErrorDialog(String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, color: AppColors.accentPink, size: 28),
+            const SizedBox(width: 10),
+            Text(
+              'Validation Error',
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'OK',
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryPurple,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showUnequalSplitDialog() {
     final totalAmount = double.tryParse(_amountController.text) ?? 0.0;
     if (totalAmount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please enter a total amount first'),
-            backgroundColor: AppColors.accentPink),
-      );
+      _showErrorDialog('Please enter a total amount first');
       return;
     }
 
@@ -1317,10 +1463,6 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
       controllers[uid] =
           TextEditingController(text: currentShare.toStringAsFixed(2));
     }
-
-    // height = handle(28) + title(56) + summary(48) + rows(memberCount*64) + buttons(72) + padding(32)
-    final sheetHeight = (28 + 56 + 48 + memberCount * 64 + 72 + 40.0)
-        .clamp(260.0, MediaQuery.of(context).size.height * 0.72);
 
     showModalBottomSheet(
       context: context,
@@ -1337,15 +1479,18 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
             final balanced = remaining.abs() < 0.01;
 
             return Container(
-              height: sheetHeight,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
               padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(ctx).viewInsets.bottom),
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.cardDark : Colors.white,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Handle
                   const SizedBox(height: 12),
@@ -1406,8 +1551,9 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
                   const SizedBox(height: 10),
                   const Divider(height: 1),
                   // Member rows
-                  Expanded(
+                  Flexible(
                     child: ListView.builder(
+                      shrinkWrap: true,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 8),
                       itemCount: memberCount,
@@ -1520,12 +1666,8 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
                                 tempShares[key] = val;
                               });
                               if ((sum - totalAmount).abs() > 0.05) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                        'Total ₹${sum.toStringAsFixed(2)} ≠ ₹${totalAmount.toStringAsFixed(2)}'),
-                                    backgroundColor: AppColors.accentPink,
-                                  ),
+                                _showErrorDialog(
+                                  'Total configured (₹${sum.toStringAsFixed(2)}) does not match the total amount (₹${totalAmount.toStringAsFixed(2)})'
                                 );
                                 return;
                               }
@@ -1561,15 +1703,11 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
     final desc = _descController.text.trim();
 
     if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount'), backgroundColor: AppColors.accentPink),
-      );
+      _showErrorDialog('Please enter a valid amount');
       return;
     }
     if (desc.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a description'), backgroundColor: AppColors.accentPink),
-      );
+      _showErrorDialog('Please enter a description');
       return;
     }
 
@@ -1581,12 +1719,22 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
       myShare = amount / widget.group.memberUids.length;
     } else {
       if (_unequalShares.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please configure unequal shares first'), backgroundColor: AppColors.accentPink),
-        );
+        _showErrorDialog('Please configure unequal shares first');
         return;
       }
       myShare = _unequalShares[myUid] ?? 0.0;
+    }
+
+    Map<String, double>? splitShares;
+    if (_splitType == 'Unequally') {
+      splitShares = {};
+      _unequalShares.forEach((uid, val) {
+        final idx = widget.group.memberUids.indexOf(uid);
+        if (idx != -1) {
+          final email = widget.group.memberEmails[idx];
+          splitShares![email] = val;
+        }
+      });
     }
 
     final otherEmails = widget.group.memberEmails.where((e) => e != currentUser?.email).toList();
@@ -1605,6 +1753,7 @@ class _AddGroupExpenseSheetState extends ConsumerState<AddGroupExpenseSheet> {
       paidByEmail: paidByEmail,
       totalAmount: amount,
       groupId: widget.group.id,
+      splitShares: splitShares,
     );
 
     Navigator.pop(context);

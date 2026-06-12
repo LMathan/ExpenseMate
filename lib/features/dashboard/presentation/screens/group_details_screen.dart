@@ -658,6 +658,9 @@ class _GroupTransactionHistory extends ConsumerWidget {
     final perHeadAmount = tx.splitWith.isNotEmpty 
         ? (tx.totalAmount > 0 ? tx.totalAmount / (tx.splitWith.length + 1) : tx.amount)
         : tx.amount;
+    final myShareAmount = tx.splitShares != null && tx.splitShares!.containsKey(currentUser?.email)
+        ? tx.splitShares![currentUser?.email]!
+        : perHeadAmount;
 
     showModalBottomSheet(
       context: context,
@@ -767,7 +770,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
                       children: [
                         Text('Your Share', style: TextStyle(color: textSecondary, fontSize: 13)),
                         Text(
-                          '₹${perHeadAmount.toStringAsFixed(2)}',
+                          '₹${myShareAmount.toStringAsFixed(2)}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accentPink),
                         ),
                       ],
@@ -827,7 +830,10 @@ class _GroupTransactionHistory extends ConsumerWidget {
                   statusText = 'Settled';
                   statusColor = AppColors.emeraldGreen;
                 } else {
-                  statusText = 'Owes ₹${perHeadAmount.toStringAsFixed(0)}';
+                  final memberShareAmount = tx.splitShares != null && tx.splitShares!.containsKey(email)
+                      ? tx.splitShares![email]!
+                      : perHeadAmount;
+                  statusText = 'Owes ₹${memberShareAmount.toStringAsFixed(0)}';
                   statusColor = AppColors.accentOrange;
                 }
                 
@@ -1036,13 +1042,22 @@ class _GroupTransactionHistory extends ConsumerWidget {
           ? tx.totalAmount / totalSplitCount 
           : tx.amount;
 
-      // Payer gets credited
-      final payerCredit = perHeadAmount * splitWith.length;
-      balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
-
-      // Split members get debited
-      for (var email in splitWith) {
-        balances[email] = (balances[email] ?? 0.0) - perHeadAmount;
+      if (tx.splitShares != null && tx.splitShares!.isNotEmpty) {
+        // Custom split calculation
+        double payerCredit = 0.0;
+        for (var email in splitWith) {
+          final share = tx.splitShares![email] ?? perHeadAmount;
+          balances[email] = (balances[email] ?? 0.0) - share;
+          payerCredit += share;
+        }
+        balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
+      } else {
+        // Equal split calculation
+        final payerCredit = perHeadAmount * splitWith.length;
+        balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
+        for (var email in splitWith) {
+          balances[email] = (balances[email] ?? 0.0) - perHeadAmount;
+        }
       }
     }
 
@@ -1168,7 +1183,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '📊 Settlement Summary',
+                        '✨ Settlement Summary',
                         style: GoogleFonts.outfit(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -1586,21 +1601,36 @@ class _GroupTransactionHistory extends ConsumerWidget {
             ],
             const Spacer(),
             if (display.isNotEmpty)
-              TextButton.icon(
-                onPressed: () => _showGroupSummary(context, ref, display, group),
-                icon: const Text('📊', style: TextStyle(fontSize: 14)),
-                label: Text(
-                  'Summary',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryPurple,
+              GestureDetector(
+                onTap: () => _showGroupSummary(context, ref, display, group),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryPurple.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  backgroundColor: AppColors.primaryPurple.withValues(alpha: 0.08),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('✨', style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Summary',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],
@@ -1631,11 +1661,15 @@ class _GroupTransactionHistory extends ConsumerWidget {
             itemCount: display.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
+              final currentUser = FirebaseAuth.instance.currentUser;
               final tx = display[index];
               final formattedDate = DateFormat('MMM dd, yyyy • hh:mm a').format(tx.date);
               final perHead = tx.splitWith.isNotEmpty
                   ? (tx.totalAmount > 0 ? tx.totalAmount / (tx.splitWith.length + 1) : tx.amount)
                   : tx.amount;
+              final myShareOnCard = tx.splitShares != null && tx.splitShares!.containsKey(currentUser?.email)
+                  ? tx.splitShares![currentUser?.email]!
+                  : perHead;
 
               return GestureDetector(
                 onTap: () => _showSplitDetails(context, ref, tx),
@@ -1695,7 +1729,9 @@ class _GroupTransactionHistory extends ConsumerWidget {
                               ),
                               if (tx.splitWith.isNotEmpty) ...[
                                 Text(
-                                  '÷ ${tx.splitWith.length + 1} = ₹${perHead.toStringAsFixed(0)}/person',
+                                  tx.splitShares != null
+                                      ? 'Your Share: ₹${myShareOnCard.toStringAsFixed(0)}'
+                                      : '÷ ${tx.splitWith.length + 1} = ₹${perHead.toStringAsFixed(0)}/person',
                                   style: TextStyle(color: textSecondary, fontSize: 9),
                                 ),
                                 if (tx.isSettled)

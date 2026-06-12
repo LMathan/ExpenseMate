@@ -10,6 +10,7 @@ import 'package:espenseai/core/constants/colors.dart';
 import 'package:espenseai/core/storage/hive_helper.dart';
 import 'package:espenseai/core/services/biometric_service.dart';
 import 'package:espenseai/core/services/firestore_sync_service.dart';
+import 'package:espenseai/core/services/notification_service.dart';
 import 'package:espenseai/core/utils/app_page_route.dart';
 import 'package:espenseai/features/expense/presentation/screens/add_expense_screen.dart';
 import 'package:espenseai/features/expense/presentation/providers/expense_provider.dart';
@@ -18,6 +19,7 @@ import 'tabs/analytics_tab.dart';
 import 'tabs/planner_tab.dart';
 import 'tabs/profile_tab.dart';
 import 'package:espenseai/features/auth/presentation/providers/auth_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -58,6 +60,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkFirstTimeUser();
       _setupRealtimeSync();
+      _setupNotifications();
     });
   }
 
@@ -68,6 +71,111 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _transactionsSubscription?.cancel();
     _profileSubscription?.cancel();
     super.dispose();
+  }
+
+  void _setupNotifications() async {
+    final notificationService = ref.read(notificationServiceProvider);
+    await notificationService.init();
+
+    final status = await Permission.notification.status;
+    if (status.isDenied) {
+      if (mounted) {
+        _showNotificationPermissionRationaleDialog();
+      }
+    } else if (status.isGranted) {
+      await notificationService.scheduleReminders();
+    }
+  }
+
+  void _showNotificationPermissionRationaleDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Center(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryPurple.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.notifications_active_rounded,
+              color: AppColors.primaryPurple,
+              size: 36,
+            ),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Stay on Track!',
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Allow notifications to receive daily reminders to log your expenses and timely alerts on your budget status.',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white : Colors.black87,
+                    side: BorderSide(color: isDark ? AppColors.borderDark : Colors.grey[300]!),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Maybe Later'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final result = await Permission.notification.request();
+                    if (result.isGranted) {
+                      await ref.read(notificationServiceProvider).scheduleReminders();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Allow'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   void _setupRealtimeSync() {

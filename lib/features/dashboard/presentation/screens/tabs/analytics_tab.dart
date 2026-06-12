@@ -88,13 +88,50 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
 
     final avgDailySpend = dailySums.isEmpty ? 0.0 : totalSpent / dailySums.length;
 
-    final trendValues = _timeRange == 'Weekly'
-        ? [800.0, 1500.0, 3000.0, 1200.0, 4500.0, 2100.0, 1800.0]
-        : [15000.0, 22000.0, 18000.0, 25000.0, 12000.0, totalSpent];
+    final List<double> trendValues;
+    final List<String> trendLabels;
 
-    final trendLabels = _timeRange == 'Weekly'
-        ? ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-        : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    if (_timeRange == 'Weekly') {
+      final now = DateTime.now();
+      final currentWeekday = now.weekday;
+      final startOfWeek = now.subtract(Duration(days: currentWeekday - 1));
+      final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+
+      final List<double> weeklyRealValues = List.filled(7, 0.0);
+      for (var tx in txs) {
+        final txDateDay = DateTime(tx.date.year, tx.date.month, tx.date.day);
+        final diffDays = txDateDay.difference(startOfWeekDay).inDays;
+        if (diffDays >= 0 && diffDays < 7) {
+          weeklyRealValues[diffDays] += tx.amount;
+        }
+      }
+      trendValues = weeklyRealValues;
+      trendLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    } else {
+      final now = DateTime.now();
+      final List<String> monthlyLabels = [];
+      final List<double> monthlyRealValues = List.filled(6, 0.0);
+      final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+      for (int i = 5; i >= 0; i--) {
+        final targetDate = DateTime(now.year, now.month - i, 1);
+        monthlyLabels.add(monthNames[targetDate.month - 1]);
+      }
+
+      for (var tx in txs) {
+        for (int i = 5; i >= 0; i--) {
+          final targetMonthStart = DateTime(now.year, now.month - i, 1);
+          final targetMonthEnd = DateTime(now.year, now.month - i + 1, 1).subtract(const Duration(seconds: 1));
+          if (tx.date.isAfter(targetMonthStart.subtract(const Duration(seconds: 1))) && 
+              tx.date.isBefore(targetMonthEnd.add(const Duration(seconds: 1)))) {
+            monthlyRealValues[5 - i] += tx.amount;
+            break;
+          }
+        }
+      }
+      trendValues = monthlyRealValues;
+      trendLabels = monthlyLabels;
+    }
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:espenseai/core/constants/colors.dart';
 import 'package:espenseai/core/constants/text_styles.dart';
 import 'package:espenseai/core/theme/theme_provider.dart';
@@ -67,6 +68,134 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         );
       }
     }
+  }
+
+  void _showAboutAppDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Center(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'About ExpenseMate',
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'ExpenseMate is a smart personal finance manager that helps you log transactions, automate splits, track budgets, and take complete control of your financial life.',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'KEY FEATURES',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.electricBlue,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildFeatureRow(Icons.account_balance_wallet_rounded, 'Expense Tracker', 'Seamlessly log and categorize all your daily expenses.'),
+              _buildFeatureRow(Icons.qr_code_scanner_rounded, 'OCR Scanner', 'Extract amounts instantly from receipts.'),
+              _buildFeatureRow(Icons.call_split_rounded, 'Smart Splitting', 'Split group bills equally or unequally.'),
+              _buildFeatureRow(Icons.cloud_sync_rounded, 'Live Sync', 'Real-time synchronization with Firestore.'),
+              _buildFeatureRow(Icons.security_rounded, 'Security Vault', 'Keep data safe behind biometric lock.'),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Text(
+                'App Version: 1.0.6',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Close',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryPurple,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureRow(IconData icon, String title, String desc) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: AppColors.primaryPurple),
+          const SizedBox(width: 8),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+                children: [
+                  TextSpan(
+                    text: '$title: ',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(text: desc),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showProfilePicOptions(
@@ -591,10 +720,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
       body: AppBackground(
         type: PageBg.profile,
         child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (widget.showBackButton) ...[
                 Row(
@@ -977,6 +1109,22 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         },
                       ),
                     ),
+                    const Divider(color: AppColors.borderDark, height: 1),
+                    ListTile(
+                      leading: Icon(
+                        Icons.info_outline_rounded,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                      title: Text(
+                        'About App',
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right_rounded,
+                        color: isDark ? Colors.white54 : Colors.black45,
+                      ),
+                      onTap: _showAboutAppDialog,
+                    ),
                   ],
                 ),
               ),
@@ -1016,12 +1164,40 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   ),
                 ],
               ),
-              const SizedBox(height: 100),
             ],
           ),
         ),
       ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'ExpenseMate',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isDark ? Colors.white60 : Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Version 1.0.6',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-    );
+    ],
+  ),
+),
+),
+);
   }
 }

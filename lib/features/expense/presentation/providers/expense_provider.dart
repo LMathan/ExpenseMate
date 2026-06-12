@@ -47,6 +47,7 @@ class TransactionNotifier extends StateNotifier<List<TransactionModel>> {
     double totalAmount = 0.0,
     String? groupId,
     String? createdBy,
+    Map<String, double>? splitShares,
   }) async {
     final box = Hive.box(HiveHelper.transactionsBox);
     final id = const Uuid().v4();
@@ -69,6 +70,7 @@ class TransactionNotifier extends StateNotifier<List<TransactionModel>> {
       totalAmount: totalAmount,
       groupId: groupId,
       createdBy: createdBy ?? currentUid,
+      splitShares: splitShares,
     );
 
     await box.put(id, tx.toMap());
