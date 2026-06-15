@@ -25,6 +25,7 @@ import 'package:espenseai/features/auth/presentation/providers/auth_provider.dar
 import '../group_details_screen.dart';
 import '../create_group_screen.dart';
 import '../owe_details_screen.dart';
+import '../to_get_details_screen.dart';
 import '../../providers/dashboard_provider.dart';
 import 'profile_tab.dart';
 import 'package:espenseai/core/utils/category_emoji_helper.dart';
@@ -51,189 +52,361 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final txs = ref.read(transactionProvider);
     final settingsBox = Hive.box(HiveHelper.settingsBox);
     final resetDay = settingsBox.get('budget_reset_day', defaultValue: 1) as int;
+    final cycleType = settingsBox.get('budget_cycle_type', defaultValue: 'monthly') as String;
+
     final controller = TextEditingController(text: budget.monthlyIncome.toStringAsFixed(0));
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : AppColors.textPrimaryLight;
     final subColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
     final bgColor = isDark ? AppColors.cardDark : Colors.white;
 
-    // Compute this cycle spend
-    DateTime now = DateTime.now();
-    int month = now.month, year = now.year;
-    int daysInMonth = DateTime(year, month + 1, 0).day;
-    int targetDay = resetDay > daysInMonth ? daysInMonth : resetDay;
-    final cycleStart = now.day >= targetDay
-        ? DateTime(year, month, targetDay)
-        : DateTime(year, month == 1 ? 12 : month - 1, targetDay);
-    double spent = 0;
-    for (var tx in txs) {
-      if (tx.date.compareTo(cycleStart) >= 0) spent += tx.amount;
-    }
-    final remaining = budget.monthlyIncome - spent;
-    final progress = budget.monthlyIncome > 0 ? (spent / budget.monthlyIncome).clamp(0.0, 1.0) : 0.0;
-    final progressColor = progress > 0.85
-        ? AppColors.accentPink
-        : progress > 0.6
-            ? AppColors.accentOrange
-            : AppColors.emeraldGreen;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: Container(
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 30, offset: const Offset(0, -8))],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.black12,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+      builder: (ctx) {
+        String tempCycleType = cycleType;
+        int tempResetDay = resetDay;
+        if (tempCycleType == 'weekly' && tempResetDay > 7) {
+          tempResetDay = 1;
+        }
+
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            // Compute spent in this cycle based on current state
+            final DateTime cycleStart;
+            if (tempCycleType == 'weekly') {
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              int daysToSubtract = today.weekday - tempResetDay;
+              if (daysToSubtract < 0) {
+                daysToSubtract += 7;
+              }
+              cycleStart = today.subtract(Duration(days: daysToSubtract));
+            } else {
+              DateTime now = DateTime.now();
+              int month = now.month, year = now.year;
+              int daysInMonth = DateTime(year, month + 1, 0).day;
+              int targetDay = tempResetDay > daysInMonth ? daysInMonth : tempResetDay;
+              cycleStart = now.day >= targetDay
+                  ? DateTime(year, month, targetDay)
+                  : DateTime(year, month == 1 ? 12 : month - 1, targetDay);
+            }
+
+            double spent = 0;
+            for (var tx in txs) {
+              if (tx.date.compareTo(cycleStart) >= 0) spent += tx.amount;
+            }
+
+            final currentAmount = double.tryParse(controller.text) ?? budget.monthlyIncome;
+            final remaining = currentAmount - spent;
+            final progress = currentAmount > 0 ? (spent / currentAmount).clamp(0.0, 1.0) : 0.0;
+            final progressColor = progress > 0.85
+                ? AppColors.accentPink
+                : progress > 0.6
+                    ? AppColors.accentOrange
+                    : AppColors.emeraldGreen;
+
+            final List<String> weekdays = [
+              'Monday',
+              'Tuesday',
+              'Wednesday',
+              'Thursday',
+              'Friday',
+              'Saturday',
+              'Sunday'
+            ];
+
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(dialogContext).viewInsets.bottom),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 30,
+                      offset: const Offset(0, -8),
+                    )
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                child: SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryPurple.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primaryPurple, size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        width: 40, height: 4,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white24 : Colors.black12,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
                               children: [
-                                Text("Monthly Budget", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
-                                Text("Budget cycle reset on Day $resetDay", style: TextStyle(fontSize: 11, color: subColor)),
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryPurple.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primaryPurple, size: 22),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Configure Budget",
+                                        style: GoogleFonts.outfit(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                          color: textColor,
+                                        ),
+                                      ),
+                                      Text(
+                                        tempCycleType == 'weekly'
+                                            ? "Resets weekly on ${weekdays[tempResetDay - 1]}"
+                                            : "Resets monthly on Day $tempResetDay",
+                                        style: TextStyle(fontSize: 11, color: subColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
+                            const SizedBox(height: 20),
 
-                      // Stats row
-                      Row(
-                        children: [
-                          Expanded(child: _BudgetStatBox(label: 'Spent', value: '₹${spent.toStringAsFixed(0)}', color: AppColors.accentPink, isDark: isDark)),
-                          const SizedBox(width: 10),
-                          Expanded(child: _BudgetStatBox(label: 'Remaining', value: '₹${remaining.toStringAsFixed(0)}', color: AppColors.emeraldGreen, isDark: isDark)),
-                          const SizedBox(width: 10),
-                          Expanded(child: _BudgetStatBox(label: 'Budget', value: '₹${budget.monthlyIncome.toStringAsFixed(0)}', color: AppColors.electricBlue, isDark: isDark)),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Progress bar
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 10,
-                          backgroundColor: progressColor.withValues(alpha: 0.12),
-                          valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${(progress * 100).toStringAsFixed(1)}% used',
-                        style: TextStyle(color: progressColor, fontSize: 11, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.end,
-                      ),
-
-                      const SizedBox(height: 20),
-                      Text('SET NEW BUDGET LIMIT', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: subColor, letterSpacing: 1)),
-                      const SizedBox(height: 10),
-
-                      // Input
-                      TextField(
-                        controller: controller,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
-                        decoration: InputDecoration(
-                          prefixText: '₹  ',
-                          prefixStyle: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
-                          hintText: '0',
-                          hintStyle: TextStyle(color: subColor),
-                          filled: true,
-                          fillColor: isDark ? AppColors.bgDark : AppColors.bgLight,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primaryPurple, width: 2)),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: subColor,
-                                side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                              ),
-                              child: const Text('Cancel'),
+                            // Stats row
+                            Row(
+                              children: [
+                                Expanded(child: _BudgetStatBox(label: 'Spent', value: '₹${spent.toStringAsFixed(0)}', color: AppColors.accentPink, isDark: isDark)),
+                                const SizedBox(width: 10),
+                                Expanded(child: _BudgetStatBox(label: 'Remaining', value: '₹${remaining.toStringAsFixed(0)}', color: AppColors.emeraldGreen, isDark: isDark)),
+                                const SizedBox(width: 10),
+                                Expanded(child: _BudgetStatBox(label: 'Limit', value: '₹${currentAmount.toStringAsFixed(0)}', color: AppColors.electricBlue, isDark: isDark)),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: AppColors.primaryGradient,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [BoxShadow(color: AppColors.primaryPurple.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
+                            const SizedBox(height: 16),
+
+                            // Progress bar
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 10,
+                                backgroundColor: progressColor.withValues(alpha: 0.12),
+                                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                               ),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final income = double.tryParse(controller.text) ?? 0.0;
-                                  if (income > 0) {
-                                    ref.read(budgetProvider.notifier).updateIncome(income);
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Budget updated!'), backgroundColor: AppColors.emeraldGreen),
-                                    );
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.transparent,
-                                  shadowColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${(progress * 100).toStringAsFixed(1)}% used',
+                              style: TextStyle(color: progressColor, fontSize: 11, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.end,
+                            ),
+
+                            const SizedBox(height: 20),
+                            Text('BUDGET LIMIT AMOUNT', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: subColor, letterSpacing: 1)),
+                            const SizedBox(height: 10),
+
+                            // Input
+                            TextField(
+                              controller: controller,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+                              onChanged: (val) {
+                                setDialogState(() {});
+                              },
+                              decoration: InputDecoration(
+                                prefixText: '₹  ',
+                                prefixStyle: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+                                hintText: '0',
+                                hintStyle: TextStyle(color: subColor),
+                                filled: true,
+                                fillColor: isDark ? AppColors.bgDark : AppColors.bgLight,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
                                 ),
-                                child: const Text('Save Budget', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(color: AppColors.primaryPurple, width: 2),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 20),
+
+                            // Weekly vs Monthly cycle toggle dropdowns
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('CYCLE TYPE', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: subColor, letterSpacing: 1)),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        decoration: BoxDecoration(
+                                          color: isDark ? AppColors.bgDark : AppColors.bgLight,
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                                        ),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            value: tempCycleType,
+                                            dropdownColor: bgColor,
+                                            isExpanded: true,
+                                            style: GoogleFonts.inter(color: textColor, fontWeight: FontWeight.w600, fontSize: 14),
+                                            items: const [
+                                              DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                                              DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                                            ],
+                                            onChanged: (val) {
+                                              if (val != null) {
+                                                setDialogState(() {
+                                                  tempCycleType = val;
+                                                  if (tempCycleType == 'weekly') {
+                                                    tempResetDay = 1; // Default to Monday
+                                                  } else {
+                                                    tempResetDay = 1; // Default to 1st of month
+                                                  }
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        tempCycleType == 'weekly' ? 'RESET DAY' : 'RESET DATE',
+                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: subColor, letterSpacing: 1),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        decoration: BoxDecoration(
+                                          color: isDark ? AppColors.bgDark : AppColors.bgLight,
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                                        ),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<int>(
+                                            value: tempResetDay,
+                                            dropdownColor: bgColor,
+                                            isExpanded: true,
+                                            style: GoogleFonts.inter(color: textColor, fontWeight: FontWeight.w600, fontSize: 14),
+                                            items: tempCycleType == 'weekly'
+                                                ? List.generate(7, (i) => i + 1)
+                                                    .map((d) => DropdownMenuItem(
+                                                          value: d,
+                                                          child: Text(weekdays[d - 1]),
+                                                        ))
+                                                    .toList()
+                                                : List.generate(31, (i) => i + 1)
+                                                    .map((d) => DropdownMenuItem(
+                                                          value: d,
+                                                          child: Text('Day $d'),
+                                                        ))
+                                                    .toList(),
+                                            onChanged: (val) {
+                                              if (val != null) {
+                                                setDialogState(() {
+                                                  tempResetDay = val;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 28),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => Navigator.pop(dialogContext),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: subColor,
+                                      side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                    ),
+                                    child: const Text('Cancel'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: AppColors.primaryGradient,
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: [BoxShadow(color: AppColors.primaryPurple.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
+                                    ),
+                                    child: ElevatedButton(
+                                      onPressed: () async {
+                                        final income = double.tryParse(controller.text) ?? 0.0;
+                                        if (income > 0) {
+                                          ref.read(budgetProvider.notifier).updateIncome(income);
+                                          await settingsBox.put('budget_cycle_type', tempCycleType);
+                                          await settingsBox.put('budget_reset_day', tempResetDay);
+                                          
+                                          if (context.mounted) {
+                                            setState(() {}); // Rebuild home tab with new budget options!
+                                            Navigator.pop(dialogContext);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Budget cycle settings saved!'), backgroundColor: AppColors.emeraldGreen),
+                                            );
+                                          }
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.transparent,
+                                        shadowColor: Colors.transparent,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                      ),
+                                      child: const Text('Save Settings', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -396,31 +569,41 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final userName = settingsBox.get('user_name', defaultValue: 'User') as String;
     final resetDay = settingsBox.get('budget_reset_day', defaultValue: 1) as int;
 
-    // Calculate cycle start date dynamically
-    DateTime getCycleStartDate(int day) {
+    final String cycleType = settingsBox.get('budget_cycle_type', defaultValue: 'monthly') as String;
+
+    DateTime getCycleStartDate() {
       final now = DateTime.now();
-      int year = now.year;
-      int month = now.month;
-      
-      int daysInMonth = DateTime(year, month + 1, 0).day;
-      int targetDay = day > daysInMonth ? daysInMonth : day;
-      
-      if (now.day >= targetDay) {
-        return DateTime(year, month, targetDay);
-      } else {
-        int prevMonth = month - 1;
-        int prevYear = year;
-        if (prevMonth == 0) {
-          prevMonth = 12;
-          prevYear = year - 1;
+      if (cycleType == 'weekly') {
+        final today = DateTime(now.year, now.month, now.day);
+        int daysToSubtract = today.weekday - resetDay;
+        if (daysToSubtract < 0) {
+          daysToSubtract += 7;
         }
-        int daysInPrevMonth = DateTime(prevYear, prevMonth + 1, 0).day;
-        int prevTargetDay = day > daysInPrevMonth ? daysInPrevMonth : day;
-        return DateTime(prevYear, prevMonth, prevTargetDay);
+        return today.subtract(Duration(days: daysToSubtract));
+      } else {
+        // Monthly
+        int year = now.year;
+        int month = now.month;
+        int daysInMonth = DateTime(year, month + 1, 0).day;
+        int targetDay = resetDay > daysInMonth ? daysInMonth : resetDay;
+        
+        if (now.day >= targetDay) {
+          return DateTime(year, month, targetDay);
+        } else {
+          int prevMonth = month - 1;
+          int prevYear = year;
+          if (prevMonth == 0) {
+            prevMonth = 12;
+            prevYear = year - 1;
+          }
+          int daysInPrevMonth = DateTime(prevYear, prevMonth + 1, 0).day;
+          int prevTargetDay = resetDay > daysInPrevMonth ? daysInPrevMonth : resetDay;
+          return DateTime(prevYear, prevMonth, prevTargetDay);
+        }
       }
     }
 
-    final cycleStart = getCycleStartDate(resetDay);
+    final cycleStart = getCycleStartDate();
 
     double currentMonthSpent = 0;
     for (var tx in txs) {
@@ -440,6 +623,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final authState = ref.watch(authProvider);
     final currentEmail = authState.email ?? '';
     double totalOwed = 0.0;
+    double totalToGet = 0.0;
 
     if (currentEmail.isNotEmpty) {
       final myEmail = currentEmail.trim().toLowerCase();
@@ -477,6 +661,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         final myBalance = balances[myEmail] ?? 0.0;
         if (myBalance < -0.01) {
           totalOwed += -myBalance;
+        } else if (myBalance > 0.01) {
+          totalToGet += myBalance;
         }
       }
     }
@@ -590,21 +776,44 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      greeting,
-                      style: AppTextStyles.bodyMedium(isDark: isDark).copyWith(
-                        color: AppColors.textSecondaryDark,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          greeting,
+                          style: AppTextStyles.bodyMedium(isDark: isDark).copyWith(
+                            color: AppColors.textSecondaryDark,
+                          ),
+                        ),
+                        Text(
+                          userName,
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      userName,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                    TextButton.icon(
+                      onPressed: () => _showEditBudgetDialog(context),
+                      icon: const Icon(Icons.add_circle_outline_rounded, size: 16, color: AppColors.primaryPurple),
+                      label: Text(
+                        'Add Budget',
+                        style: GoogleFonts.inter(
+                          color: AppColors.primaryPurple,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
                   ],
@@ -619,12 +828,12 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                       child: BouncyGestureDetector(
                         onTap: () => ref.read(dashboardIndexProvider.notifier).state = 1,
                         child: _buildSolidCard(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: AppColors.electricBlue.withValues(alpha: isDark ? 0.15 : 0.08),
@@ -632,14 +841,14 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 child: const Icon(
                                   Icons.today_rounded,
                                   color: AppColors.electricBlue,
-                                  size: 18,
+                                  size: 16,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Text(
                                 'Today',
                                 style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
                                 ),
@@ -650,7 +859,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 child: Text(
                                   '₹${todaySpent.toStringAsFixed(0)}',
                                   style: GoogleFonts.spaceGrotesk(
-                                    fontSize: 16,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                     color: isDark ? Colors.white : AppColors.textPrimaryLight,
                                   ),
@@ -661,18 +870,18 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     // Box 2: This Month's Spend
                     Expanded(
                       child: BouncyGestureDetector(
                         onTap: () => ref.read(dashboardIndexProvider.notifier).state = 1,
                         child: _buildSolidCard(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: AppColors.primaryPurple.withValues(alpha: isDark ? 0.15 : 0.08),
@@ -680,14 +889,14 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 child: const Icon(
                                   Icons.calendar_month_rounded,
                                   color: AppColors.primaryPurple,
-                                  size: 18,
+                                  size: 16,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Text(
                                 'This Month',
                                 style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
                                 ),
@@ -698,7 +907,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 child: Text(
                                   '₹${currentMonthSpent.toStringAsFixed(0)}',
                                   style: GoogleFonts.spaceGrotesk(
-                                    fontSize: 16,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                     color: isDark ? Colors.white : AppColors.textPrimaryLight,
                                   ),
@@ -709,7 +918,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     // Box 3: You Owe
                     Expanded(
                       child: BouncyGestureDetector(
@@ -721,27 +930,27 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           ),
                         ),
                         child: _buildSolidCard(
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: AppColors.accentPink.withValues(alpha: isDark ? 0.15 : 0.08),
+                                  color: Colors.red.withValues(alpha: isDark ? 0.15 : 0.08),
                                 ),
                                 child: const Icon(
                                   Icons.money_off_rounded,
-                                  color: AppColors.accentPink,
-                                  size: 18,
+                                  color: Colors.redAccent,
+                                  size: 16,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Text(
                                 'You Owe',
                                 style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
                                 ),
@@ -752,9 +961,63 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                                 child: Text(
                                   '₹${totalOwed.toStringAsFixed(0)}',
                                   style: GoogleFonts.spaceGrotesk(
-                                    fontSize: 16,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
-                                    color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Box 4: To Get
+                    Expanded(
+                      child: BouncyGestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          AppPageRoute(
+                            page: const ToGetDetailsScreen(),
+                            type: RouteTransitionType.slideRight,
+                          ),
+                        ),
+                        child: _buildSolidCard(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.emeraldGreen.withValues(alpha: isDark ? 0.15 : 0.08),
+                                ),
+                                child: const Icon(
+                                  Icons.attach_money_rounded,
+                                  color: AppColors.emeraldGreen,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'To Get',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  '₹${totalToGet.toStringAsFixed(0)}',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.emeraldGreen,
                                   ),
                                 ),
                               ),

@@ -172,29 +172,420 @@ class OweDetailsScreen extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    if (upiId.isNotEmpty) {
-      // Launch standard UPI chooser directly with all details pre-filled
-      final upiUrl = _buildUpiUrl(upiId, item.toName, item.amount, 'standard');
-      final uri = Uri.parse(upiUrl);
-      try {
-        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        if (!launched) {
-          _showNoUpiAppsDialog(context, item);
-        }
-      } catch (e) {
-        _showNoUpiAppsDialog(context, item);
-      }
-    } else {
-      // No UPI ID: launch generic upi://pay to open UPI apps chooser anyway
-      try {
-        final launched = await launchUrl(Uri.parse('upi://pay'), mode: LaunchMode.externalApplication);
-        if (!launched) {
-          _showNoUpiAppsDialog(context, item);
-        }
-      } catch (e) {
-        _showNoUpiAppsDialog(context, item);
-      }
-    }
+    _showSettlementSheet(context, item, upiId);
+  }
+
+  void _showSettlementSheet(BuildContext context, OweItem item, String initialUpiId) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : AppColors.textPrimaryLight;
+    final subColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+    final cardBg = isDark ? AppColors.cardDark : Colors.white;
+    final borderCol = isDark ? AppColors.borderDark : AppColors.borderLight;
+
+    final TextEditingController upiController = TextEditingController(text: initialUpiId);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final upiId = upiController.text.trim();
+            final hasUpi = upiId.isNotEmpty;
+
+            return Container(
+              padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 36),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                border: Border.all(color: borderCol.withValues(alpha: 0.5), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 30,
+                    offset: const Offset(0, -10),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 46,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white24 : Colors.black12,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Avatar & Payee Name
+                    Row(
+                      children: [
+                        Builder(
+                          builder: (context) {
+                            final toEmailIndex = item.group.memberEmails.indexWhere((e) => e.trim().toLowerCase() == item.toEmail.trim().toLowerCase());
+                            final uid = toEmailIndex != -1 && toEmailIndex < item.group.memberUids.length ? item.group.memberUids[toEmailIndex] : '';
+                            return GroupMemberAvatar(
+                              uid: uid,
+                              initials: item.toName.isNotEmpty ? item.toName.substring(0, 1).toUpperCase() : 'U',
+                              avatarColor: AppColors.primaryPurple,
+                              radius: 26,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Settle with ${item.toName}',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                              Text(
+                                item.toEmail,
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: subColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Amount Card with Copy Action
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: borderCol.withValues(alpha: 0.3),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'AMOUNT TO PAY',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: subColor,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '₹${item.amount.toStringAsFixed(2)}',
+                                style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.accentPink,
+                                ),
+                              ),
+                            ],
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: item.amount.toStringAsFixed(2)));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Amount ₹${item.amount.toStringAsFixed(2)} copied to clipboard!',
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                                  ),
+                                  backgroundColor: AppColors.primaryPurple,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryPurple.withValues(alpha: 0.15),
+                              foregroundColor: AppColors.primaryPurple,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            label: Text(
+                              'Copy',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // UPI Details Title
+                    Text(
+                      'RECIPIENT UPI ID',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: subColor,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // UPI Input/Display Field
+                    if (initialUpiId.isEmpty) ...[
+                      // If no UPI ID is registered, show a text field
+                      Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.01),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: borderCol.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: TextField(
+                          controller: upiController,
+                          onChanged: (val) => setState(() {}),
+                          style: GoogleFonts.spaceGrotesk(
+                            color: textColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Enter UPI ID (e.g. name@bank)',
+                            hintStyle: GoogleFonts.inter(
+                              color: subColor.withValues(alpha: 0.6),
+                              fontSize: 14,
+                              fontWeight: FontWeight.normal,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            border: InputBorder.none,
+                            prefixIcon: ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [AppColors.primaryPurple, AppColors.accentPink],
+                              ).createShader(bounds),
+                              child: const Icon(
+                                Icons.account_balance_rounded,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${item.toName} hasn\'t set their UPI ID yet. You can add it manually above to pay directly via UPI.',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: AppColors.accentPink,
+                          height: 1.4,
+                        ),
+                      ),
+                    ] else ...[
+                      // Recipient has UPI ID
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.black.withValues(alpha: 0.01),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: borderCol.withValues(alpha: 0.3),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [AppColors.primaryPurple, AppColors.accentPink],
+                              ).createShader(bounds),
+                              child: const Icon(
+                                Icons.account_balance_rounded,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                upiId,
+                                style: GoogleFonts.spaceGrotesk(
+                                  color: textColor,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: upiId));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'UPI ID copied to clipboard!',
+                                      style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                                    ),
+                                    backgroundColor: AppColors.primaryPurple,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                );
+                              },
+                              icon: Icon(Icons.copy_rounded, color: subColor, size: 20),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+
+                    // UPI Disclaimer Alert
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPurple.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.primaryPurple.withValues(alpha: 0.15),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            color: AppColors.primaryPurple,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Note: To prevent security blocks, the payment amount will be automatically copied. Please paste it manually when the UPI app opens.',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: isDark ? AppColors.textSecondaryDark : AppColors.primaryPurple,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+
+                    // Actions
+                    ElevatedButton(
+                      onPressed: !hasUpi
+                          ? null
+                          : () async {
+                              // Copy amount to clipboard automatically
+                              Clipboard.setData(ClipboardData(text: item.amount.toStringAsFixed(2)));
+                              
+                              // Show snackbar
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Amount ₹${item.amount.toStringAsFixed(2)} copied! Opening UPI app...',
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                                  ),
+                                  backgroundColor: AppColors.emeraldGreen,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              );
+
+                              // Close sheet
+                              Navigator.pop(ctx);
+
+                              // Open UPI
+                              final upiUrl = _buildUpiUrl(upiId, item.toName, 'standard');
+                              final uri = Uri.parse(upiUrl);
+                              try {
+                                final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                if (!launched) {
+                                  _showNoUpiAppsDialog(context, item);
+                                }
+                              } catch (e) {
+                                _showNoUpiAppsDialog(context, item);
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryPurple,
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        shadowColor: AppColors.primaryPurple.withValues(alpha: 0.4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        disabledBackgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                        disabledForegroundColor: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                      ),
+                      child: Text(
+                        'Open UPI App to Pay',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          AppPageRoute(
+                            page: GroupDetailsScreen(
+                              groupId: item.groupId,
+                              initialGroup: item.group,
+                            ),
+                            type: RouteTransitionType.slideRight,
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: subColor,
+                        side: BorderSide(color: borderCol),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                      ),
+                      child: Text(
+                        'Settle Manually (Go to Group)',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showNoUpiAppsDialog(BuildContext context, OweItem item) {
@@ -350,20 +741,18 @@ class OweDetailsScreen extends ConsumerWidget {
     );
   }
 
-  String _buildUpiUrl(String upiId, String name, double amount, String type) {
+  String _buildUpiUrl(String upiId, String name, String type) {
     final encodedName = Uri.encodeComponent(name);
-    final amtStr = amount.toStringAsFixed(2);
-    final txnNote = Uri.encodeComponent('ExpenseMate Split Settlement');
     
     switch (type) {
       case 'gpay':
-        return 'upi://pay?pa=$upiId&pn=$encodedName&am=$amtStr&cu=INR&tn=$txnNote';
+        return 'upi://pay?pa=$upiId&pn=$encodedName&cu=INR';
       case 'phonepe':
-        return 'phonepe://pay?pa=$upiId&pn=$encodedName&am=$amtStr&cu=INR&tn=$txnNote';
+        return 'phonepe://pay?pa=$upiId&pn=$encodedName&cu=INR';
       case 'paytm':
-        return 'paytmmp://pay?pa=$upiId&pn=$encodedName&am=$amtStr&cu=INR&tn=$txnNote';
+        return 'paytmmp://pay?pa=$upiId&pn=$encodedName&cu=INR';
       default:
-        return 'upi://pay?pa=$upiId&pn=$encodedName&am=$amtStr&cu=INR&tn=$txnNote';
+        return 'upi://pay?pa=$upiId&pn=$encodedName&cu=INR';
     }
   }
 
