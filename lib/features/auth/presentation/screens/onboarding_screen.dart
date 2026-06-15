@@ -27,12 +27,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       tag: 'Smart Tracking',
     ),
     _OnboardSlide(
-      title: 'AI-Powered\nSpending Insights',
-      subtitle: 'Chat with your AI financial advisor and discover savings opportunities hidden in your habits.',
+      title: 'Split & Settle\nInstantly',
+      subtitle: 'Create groups, split bills with friends, and settle balances instantly via native UPI payments.',
       gradientColors: [Color(0xFF4A90E2), Color(0xFF00C896)],
-      icon: Icons.auto_awesome_rounded,
+      icon: Icons.handshake_rounded,
       accentColor: AppColors.emeraldGreen,
-      tag: 'AI Advisor',
+      tag: 'Split & Pay',
     ),
     _OnboardSlide(
       title: 'Save Smarter,\nSpend Better',

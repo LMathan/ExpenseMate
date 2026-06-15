@@ -450,8 +450,8 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           if (tx.isSettled) continue;
           final payerEmail = tx.paidByEmail.trim().toLowerCase();
           final splitWith = tx.splitWith.map((e) => e.trim().toLowerCase()).toList();
-          final totalSplitCount = splitWith.length;
-          if (totalSplitCount == 0) continue;
+          final totalSplitCount = splitWith.length + 1;
+          if (totalSplitCount <= 1) continue;
 
           final perHeadAmount = tx.totalAmount > 0 
               ? tx.totalAmount / totalSplitCount 

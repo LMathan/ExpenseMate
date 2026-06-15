@@ -8,6 +8,7 @@ class UserModel {
   final String familyWalletId;
   final int xp;
   final int level;
+  final String upiId;
 
   UserModel({
     required this.id,
@@ -19,6 +20,7 @@ class UserModel {
     required this.familyWalletId,
     required this.xp,
     required this.level,
+    required this.upiId,
   });
 
   factory UserModel.fromMap(Map<dynamic, dynamic> map) {
@@ -32,6 +34,7 @@ class UserModel {
       familyWalletId: map['familyWalletId'] ?? '',
       xp: map['xp'] ?? 0,
       level: map['level'] ?? 1,
+      upiId: map['user_upi_id'] ?? '',
     );
   }
 
@@ -45,6 +48,7 @@ class UserModel {
       'familyWalletId': familyWalletId,
       'xp': xp,
       'level': level,
+      'user_upi_id': upiId,
     };
   }
 }

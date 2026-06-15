@@ -371,9 +371,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _firebaseAuth.signOut();
     } catch (_) {}
+
+    try {
+      await Hive.box(HiveHelper.transactionsBox).clear();
+      await Hive.box(HiveHelper.budgetsBox).clear();
+      await Hive.box(HiveHelper.goalsBox).clear();
+      await Hive.box(HiveHelper.subscriptionsBox).clear();
+      await Hive.box(HiveHelper.billsBox).clear();
+      await Hive.box(HiveHelper.challengesBox).clear();
+      await Hive.box(HiveHelper.groupsBox).clear();
+    } catch (e) {
+      debugPrint('Error clearing Hive boxes on logout: $e');
+    }
+
     final box = Hive.box(HiveHelper.settingsBox);
     await box.put('is_logged_in', false);
     await box.put('is_guest_mode', false);
+    await box.delete('user_name');
+    await box.delete('user_upi_id');
+    await box.delete('user_gender');
+    await box.delete('profile_picture_url');
+    await box.delete('profile_picture_path');
     state = AuthState(status: AuthStatus.unauthenticated);
   }
 
@@ -382,6 +400,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _firebaseAuth.currentUser?.delete();
       await _firebaseAuth.signOut();
     } catch (_) {}
+
+    try {
+      await Hive.box(HiveHelper.transactionsBox).clear();
+      await Hive.box(HiveHelper.budgetsBox).clear();
+      await Hive.box(HiveHelper.goalsBox).clear();
+      await Hive.box(HiveHelper.subscriptionsBox).clear();
+      await Hive.box(HiveHelper.billsBox).clear();
+      await Hive.box(HiveHelper.challengesBox).clear();
+      await Hive.box(HiveHelper.groupsBox).clear();
+    } catch (e) {
+      debugPrint('Error clearing Hive boxes on deleteAccount: $e');
+    }
+
     final box = Hive.box(HiveHelper.settingsBox);
     await box.clear();
     state = AuthState(status: AuthStatus.unauthenticated);

@@ -297,10 +297,8 @@ class BillRemindersNotifier extends StateNotifier<List<BillReminderModel>> {
 }
 
 final billsProvider = StateNotifierProvider<BillRemindersNotifier, List<BillReminderModel>>((ref) {
-  return billsProviderNotifier;
+  return BillRemindersNotifier();
 });
-
-final billsProviderNotifier = BillRemindersNotifier();
 
 // 6. Challenges State Notifier
 class ChallengesNotifier extends StateNotifier<List<ChallengeModel>> {

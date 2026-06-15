@@ -82,12 +82,20 @@ class FirestoreSyncService {
 
   // Push single transaction
   Future<void> syncTransaction(TransactionModel tx) async {
-    // 1. Write to our own transactions subcollection
-    await _uploadDocument('transactions', tx.id, tx.toMap());
+    if (!isAuthenticated) return;
+    try {
+      final batch = _firestore.batch();
+      
+      // 1. Write to our own transactions subcollection
+      final myTxRef = _firestore
+          .collection('users')
+          .doc(_uid)
+          .collection('transactions')
+          .doc(tx.id);
+      batch.set(myTxRef, tx.toMap(), SetOptions(merge: true));
 
-    // 2. If it's a group transaction, write it to every member's transactions subcollection
-    if (tx.groupId != null && tx.groupId!.isNotEmpty) {
-      try {
+      // 2. If it's a group transaction, write it to every member's transactions subcollection
+      if (tx.groupId != null && tx.groupId!.isNotEmpty) {
         final groupBox = Hive.box(HiveHelper.groupsBox);
         final groupData = groupBox.get(tx.groupId);
         if (groupData != null) {
@@ -109,18 +117,20 @@ class FirestoreSyncService {
               // Create a copy of the transaction with the member's specific share
               final memberTx = tx.copyWith(amount: memberShare);
 
-              await _firestore
+              final memberTxRef = _firestore
                   .collection('users')
                   .doc(memberUid)
                   .collection('transactions')
-                  .doc(tx.id)
-                  .set(memberTx.toMap(), SetOptions(merge: true));
+                  .doc(tx.id);
+              batch.set(memberTxRef, memberTx.toMap(), SetOptions(merge: true));
             }
           }
         }
-      } catch (e) {
-        debugPrint('Error replicating group transaction to members: $e');
       }
+      
+      await batch.commit();
+    } catch (e) {
+      debugPrint('Error committing sync transaction batch: $e');
     }
   }
 
@@ -134,6 +144,17 @@ class FirestoreSyncService {
           .collection('transactions')
           .doc(id)
           .get();
+          
+      final batch = _firestore.batch();
+      
+      // Delete from own collection
+      final myTxRef = _firestore
+          .collection('users')
+          .doc(_uid)
+          .collection('transactions')
+          .doc(id);
+      batch.delete(myTxRef);
+
       if (doc.exists) {
         final data = doc.data();
         if (data != null && data.containsKey('groupId') && data['groupId'] != null) {
@@ -143,19 +164,22 @@ class FirestoreSyncService {
           if (groupData != null) {
             final group = GroupModel.fromMap(Map<dynamic, dynamic>.from(groupData));
             for (final memberUid in group.memberUids) {
-              await _firestore
-                  .collection('users')
-                  .doc(memberUid)
-                  .collection('transactions')
-                  .doc(id)
-                  .delete();
+              if (memberUid != _uid) {
+                final memberTxRef = _firestore
+                    .collection('users')
+                    .doc(memberUid)
+                    .collection('transactions')
+                    .doc(id);
+                batch.delete(memberTxRef);
+              }
             }
           }
         }
       }
-      await _deleteDocument('transactions', id);
+      
+      await batch.commit();
     } catch (e) {
-      debugPrint('Error deleting transaction from members: $e');
+      debugPrint('Error committing delete transaction batch: $e');
     }
   }
 
@@ -197,17 +221,19 @@ class FirestoreSyncService {
   // Push single group to creator and all members
   Future<void> syncGroup(GroupModel group) async {
     if (!isAuthenticated) return;
-    for (final memberUid in group.memberUids) {
-      try {
-        await _firestore
+    try {
+      final batch = _firestore.batch();
+      for (final memberUid in group.memberUids) {
+        final groupRef = _firestore
             .collection('users')
             .doc(memberUid)
             .collection('groups')
-            .doc(group.id)
-            .set(group.toMap(), SetOptions(merge: true));
-      } catch (e) {
-        debugPrint('Error syncing group for member $memberUid: $e');
+            .doc(group.id);
+        batch.set(groupRef, group.toMap(), SetOptions(merge: true));
       }
+      await batch.commit();
+    } catch (e) {
+      debugPrint('Error committing sync group batch: $e');
     }
   }
 
@@ -221,23 +247,37 @@ class FirestoreSyncService {
           .collection('groups')
           .doc(id)
           .get();
+          
+      final batch = _firestore.batch();
+      
+      // Delete from own collection
+      final myGroupRef = _firestore
+          .collection('users')
+          .doc(_uid)
+          .collection('groups')
+          .doc(id);
+      batch.delete(myGroupRef);
+
       if (doc.exists) {
         final data = doc.data();
         if (data != null && data.containsKey('memberUids')) {
           final memberUids = List<String>.from(data['memberUids'] ?? []);
           for (final mUid in memberUids) {
-            await _firestore
-                .collection('users')
-                .doc(mUid)
-                .collection('groups')
-                .doc(id)
-                .delete();
+            if (mUid != _uid) {
+              final memberGroupRef = _firestore
+                  .collection('users')
+                  .doc(mUid)
+                  .collection('groups')
+                  .doc(id);
+              batch.delete(memberGroupRef);
+            }
           }
         }
       }
-      await _deleteDocument('groups', id);
+      
+      await batch.commit();
     } catch (e) {
-      debugPrint('Error deleting group: $e');
+      debugPrint('Error committing delete group batch: $e');
     }
   }
 
@@ -291,6 +331,9 @@ class FirestoreSyncService {
             // Sync values to local Hive settings box
             if (data.containsKey('displayName')) {
               await settingsBox.put('user_name', data['displayName']);
+            }
+            if (data.containsKey('user_upi_id')) {
+              await settingsBox.put('user_upi_id', data['user_upi_id']);
             }
             if (data.containsKey('photoUrl') && data['photoUrl'] != null) {
               final photoUrl = data['photoUrl'] as String;
@@ -593,6 +636,7 @@ class FirestoreSyncService {
         'currency': settingsBox.get('user_currency', defaultValue: '₹'),
         'has_completed_profile_setup': settingsBox.get('has_completed_profile_setup', defaultValue: false),
         'user_gender': settingsBox.get('user_gender', defaultValue: 'male'),
+        'user_upi_id': settingsBox.get('user_upi_id', defaultValue: ''),
       };
       // Profile picture: prefer cached Storage URL, else upload the local file now
       final profilePhotoUrl = settingsBox.get('profile_picture_url') as String?;
@@ -677,6 +721,9 @@ class FirestoreSyncService {
         }
         if (data.containsKey('currency')) {
           await settingsBox.put('user_currency', data['currency']);
+        }
+        if (data.containsKey('user_upi_id')) {
+          await settingsBox.put('user_upi_id', data['user_upi_id']);
         }
       } else {
         // User profile doesn't exist on Firestore (e.g. first-time Google sign-in/login)
@@ -804,6 +851,7 @@ class FirestoreSyncService {
           'displayName': data['displayName'] ?? 'User',
           'photoUrl': data['photoUrl'] ?? '',
           'user_gender': data['user_gender'] ?? 'male',
+          'user_upi_id': data['user_upi_id'] ?? '',
         };
       }).toList();
     } catch (e) {
@@ -836,6 +884,7 @@ class FirestoreSyncService {
           'displayName': data['displayName'] ?? 'User',
           'photoUrl': data['photoUrl'] ?? '',
           'user_gender': data['user_gender'] ?? 'male',
+          'user_upi_id': data['user_upi_id'] ?? '',
         };
       }).toList();
 
@@ -855,6 +904,7 @@ class FirestoreSyncService {
             'displayName': data['displayName'] ?? 'User',
             'photoUrl': data['photoUrl'] ?? '',
             'user_gender': data['user_gender'] ?? 'male',
+            'user_upi_id': data['user_upi_id'] ?? '',
           };
         }));
       }
@@ -875,6 +925,7 @@ class FirestoreSyncService {
             'displayName': data['displayName'] ?? 'User',
             'photoUrl': data['photoUrl'] ?? '',
             'user_gender': data['user_gender'] ?? 'male',
+            'user_upi_id': data['user_upi_id'] ?? '',
           };
         }));
       }
@@ -936,6 +987,20 @@ class FirestoreSyncService {
     } catch (e) {
       debugPrint('Error checking if username is taken: $e');
       return false;
+    }
+  }
+
+  Future<void> updateUpiId(String upiId) async {
+    if (!isAuthenticated) return;
+    try {
+      final sBox = Hive.box(HiveHelper.settingsBox);
+      await sBox.put('user_upi_id', upiId);
+      await _firestore.collection('users').doc(_uid).set({
+        'user_upi_id': upiId,
+      }, SetOptions(merge: true));
+      debugPrint('UPI ID updated successfully in Firestore and Hive.');
+    } catch (e) {
+      debugPrint('Error updating UPI ID in Firestore: $e');
     }
   }
 }

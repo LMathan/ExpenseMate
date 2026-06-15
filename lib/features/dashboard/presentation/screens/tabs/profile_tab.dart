@@ -876,6 +876,116 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with WidgetsBindingObse
         backgroundColor: AppColors.emeraldGreen,
       ),
     );
+  }  void _showEditUpiIdDialog(String currentUpiId) {
+    final controller = TextEditingController(text: currentUpiId);
+    final syncService = FirestoreSyncService();
+
+    showAnimatedDialog(
+      context: context,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final bgColor = isDark ? AppColors.bgDark : Colors.white;
+        final textColor = isDark ? Colors.white : Colors.black87;
+        final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final text = controller.text.trim();
+            final isFormatValid = text.isEmpty || RegExp(r'^[\w\.\-]+@[\w\-]+$').hasMatch(text);
+
+            return AlertDialog(
+              backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Text(
+                'UPI ID Configuration',
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Configure your UPI ID to allow other group members to pay you directly via their UPI apps.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    style: TextStyle(color: textColor),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. mobile@ybl or name@okaxis',
+                      hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
+                      labelText: 'UPI ID',
+                      labelStyle: TextStyle(color: isFormatValid ? (isDark ? Colors.white70 : Colors.black54) : Colors.redAccent),
+                      errorText: isFormatValid ? null : 'Invalid UPI ID format',
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.primaryPurple, width: 2.0),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.redAccent, width: 2.0),
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setDialogState(() {});
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: isFormatValid
+                      ? () async {
+                          final newUpi = controller.text.trim();
+                          await syncService.updateUpiId(newUpi);
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(newUpi.isEmpty ? 'UPI ID removed' : 'UPI ID saved successfully!'),
+                                backgroundColor: AppColors.emeraldGreen,
+                              ),
+                            );
+                          }
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryPurple,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showEditUsernameDialog(String currentName) {
@@ -1317,6 +1427,53 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with WidgetsBindingObse
                         style: AppTextStyles.bodySmall(isDark: isDark),
                       ),
                     ],
+                    const SizedBox(height: 8),
+                    Builder(
+                      builder: (context) {
+                        final upiId = sBox.get('user_upi_id', defaultValue: '') as String;
+                        return GestureDetector(
+                          onTap: () => _showEditUpiIdDialog(upiId),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.03),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.payment_rounded,
+                                  size: 14,
+                                  color: isDark ? AppColors.electricBlue : AppColors.primaryPurple,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  upiId.isEmpty ? 'Add UPI ID' : 'UPI: $upiId',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: upiId.isEmpty
+                                        ? (isDark ? AppColors.electricBlue : AppColors.primaryPurple)
+                                        : (isDark ? Colors.white70 : Colors.black87),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.edit_rounded,
+                                  size: 12,
+                                  color: isDark ? Colors.white38 : Colors.black38,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
