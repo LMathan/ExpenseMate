@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -53,18 +54,22 @@ class OweDetailsScreen extends ConsumerWidget {
             ? tx.totalAmount / totalSplitCount 
             : tx.amount;
 
+        final settledEmails = tx.settledWith.map((e) => e.trim().toLowerCase()).toList();
+
         if (tx.splitShares != null && tx.splitShares!.isNotEmpty) {
           double payerCredit = 0.0;
           for (var email in splitWith) {
+            if (settledEmails.contains(email)) continue;
             final share = tx.splitShares![email] ?? perHeadAmount;
             balances[email] = (balances[email] ?? 0.0) - share;
             payerCredit += share;
           }
           balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
         } else {
-          final payerCredit = perHeadAmount * splitWith.length;
+          final activeSplitWith = splitWith.where((e) => !settledEmails.contains(e)).toList();
+          final payerCredit = perHeadAmount * activeSplitWith.length;
           balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
-          for (var email in splitWith) {
+          for (var email in activeSplitWith) {
             balances[email] = (balances[email] ?? 0.0) - perHeadAmount;
           }
         }
@@ -498,37 +503,9 @@ class OweDetailsScreen extends ConsumerWidget {
                     ElevatedButton(
                       onPressed: !hasUpi
                           ? null
-                          : () async {
-                              // Copy amount to clipboard automatically
-                              Clipboard.setData(ClipboardData(text: item.amount.toStringAsFixed(2)));
-                              
-                              // Show snackbar
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Amount ₹${item.amount.toStringAsFixed(2)} copied! Opening UPI app...',
-                                    style: GoogleFonts.inter(fontWeight: FontWeight.bold),
-                                  ),
-                                  backgroundColor: AppColors.emeraldGreen,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                              );
-
-                              // Close sheet
+                          : () {
                               Navigator.pop(ctx);
-
-                              // Open UPI
-                              final upiUrl = _buildUpiUrl(upiId, item.toName, 'standard');
-                              final uri = Uri.parse(upiUrl);
-                              try {
-                                final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                if (!launched) {
-                                  _showNoUpiAppsDialog(context, item);
-                                }
-                              } catch (e) {
-                                _showNoUpiAppsDialog(context, item);
-                              }
+                              _showUpiAppChooserSheet(context, item, upiId);
                             },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryPurple,
@@ -586,6 +563,330 @@ class OweDetailsScreen extends ConsumerWidget {
         );
       },
     );
+  }
+
+  void _showUpiAppChooserSheet(BuildContext context, OweItem item, String upiId) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : AppColors.textPrimaryLight;
+    final subColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+    final cardBg = isDark ? AppColors.cardDark : Colors.white;
+    final borderCol = isDark ? AppColors.borderDark : AppColors.borderLight;
+
+    bool hasGPay = false;
+    bool hasPhonePe = false;
+    bool hasPaytm = false;
+    bool isLoading = true;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            if (isLoading) {
+              Future.wait([
+                canLaunchUrl(Uri.parse(Platform.isAndroid ? 'tez://' : 'gpay://')).then((val) => hasGPay = val).catchError((_) => hasGPay = false),
+                canLaunchUrl(Uri.parse('phonepe://')).then((val) => hasPhonePe = val).catchError((_) => hasPhonePe = false),
+                canLaunchUrl(Uri.parse('paytmmp://')).then((val) => hasPaytm = val).catchError((_) => hasPaytm = false),
+              ]).then((_) {
+                if (ctx.mounted) {
+                  setState(() {
+                    isLoading = false;
+                  });
+                }
+              });
+            }
+
+            return Container(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                border: Border.all(color: borderCol.withValues(alpha: 0.5), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 30,
+                    offset: const Offset(0, -10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 46,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.black12,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Select UPI App',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'We will copy the UPI ID and launch the selected app. You can then paste the ID and pay ₹${item.amount.toStringAsFixed(2)} manually.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: subColor,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryPurple),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    _buildUpiAppOption(
+                      context: context,
+                      appName: 'Google Pay',
+                      brandColor: const Color(0xFF1A73E8),
+                      iconData: Icons.g_mobiledata_rounded,
+                      isGoogle: true,
+                      isInstalled: hasGPay,
+                      onTap: () => _launchUpiApp(context, 'gpay', upiId, item),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildUpiAppOption(
+                      context: context,
+                      appName: 'PhonePe',
+                      brandColor: const Color(0xFF5F259F),
+                      iconData: Icons.payment_rounded,
+                      isInstalled: hasPhonePe,
+                      onTap: () => _launchUpiApp(context, 'phonepe', upiId, item),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildUpiAppOption(
+                      context: context,
+                      appName: 'Paytm',
+                      brandColor: const Color(0xFF00B9F5),
+                      iconData: Icons.account_balance_wallet_rounded,
+                      isInstalled: hasPaytm,
+                      onTap: () => _launchUpiApp(context, 'paytm', upiId, item),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildUpiAppOption(
+                      context: context,
+                      appName: 'Other UPI App',
+                      brandColor: AppColors.emeraldGreen,
+                      iconData: Icons.rocket_launch_rounded,
+                      isInstalled: true,
+                      isGeneric: true,
+                      onTap: () => _launchUpiApp(context, 'other', upiId, item),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: subColor,
+                      side: BorderSide(color: borderCol),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildUpiAppOption({
+    required BuildContext context,
+    required String appName,
+    required Color brandColor,
+    required IconData iconData,
+    bool isGoogle = false,
+    bool isInstalled = false,
+    bool isGeneric = false,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final itemBg = isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.02);
+    final borderCol = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final textColor = isDark ? Colors.white : AppColors.textPrimaryLight;
+    final subColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: itemBg,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isInstalled 
+                ? brandColor.withValues(alpha: 0.4) 
+                : borderCol.withValues(alpha: 0.3), 
+            width: isInstalled ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: brandColor.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(color: brandColor.withValues(alpha: 0.2), width: 1),
+              ),
+              child: isGoogle 
+                ? Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'G',
+                          style: GoogleFonts.outfit(
+                            color: brandColor,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Pay',
+                          style: GoogleFonts.outfit(
+                            color: AppColors.accentPink,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Icon(
+                    iconData,
+                    color: brandColor,
+                    size: 22,
+                  ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    appName,
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                  if (!isGeneric) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      isInstalled ? 'Installed' : 'Not detected (Tap to try)',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: isInstalled ? AppColors.emeraldGreen : subColor.withValues(alpha: 0.8),
+                        fontWeight: isInstalled ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: isDark ? Colors.white38 : Colors.black38,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchUpiApp(BuildContext context, String appType, String upiId, OweItem item) async {
+    await Clipboard.setData(ClipboardData(text: upiId));
+
+    String displayAppName = 'UPI App';
+    if (appType == 'gpay') displayAppName = 'Google Pay';
+    if (appType == 'phonepe') displayAppName = 'PhonePe';
+    if (appType == 'paytm') displayAppName = 'Paytm';
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'UPI ID copied! Opening $displayAppName to pay ₹${item.amount.toStringAsFixed(2)}',
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: AppColors.emeraldGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      Navigator.pop(context);
+    }
+
+    Uri uri;
+    if (appType == 'gpay') {
+      uri = Platform.isAndroid ? Uri.parse('tez://') : Uri.parse('gpay://');
+    } else if (appType == 'phonepe') {
+      uri = Uri.parse('phonepe://');
+    } else if (appType == 'paytm') {
+      uri = Uri.parse('paytmmp://');
+    } else {
+      uri = Uri.parse('upi://pay');
+    }
+
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        if (appType != 'other') {
+          final fallbackUri = Uri.parse('upi://pay');
+          await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+        } else {
+          if (context.mounted) {
+            _showNoUpiAppsDialog(context, item);
+          }
+        }
+      }
+    } catch (e) {
+      try {
+        final fallbackUri = Uri.parse('upi://pay');
+        await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
+      } catch (err) {
+        if (context.mounted) {
+          _showNoUpiAppsDialog(context, item);
+        }
+      }
+    }
   }
 
   void _showNoUpiAppsDialog(BuildContext context, OweItem item) {
@@ -741,20 +1042,7 @@ class OweDetailsScreen extends ConsumerWidget {
     );
   }
 
-  String _buildUpiUrl(String upiId, String name, String type) {
-    final encodedName = Uri.encodeComponent(name);
-    
-    switch (type) {
-      case 'gpay':
-        return 'upi://pay?pa=$upiId&pn=$encodedName&cu=INR';
-      case 'phonepe':
-        return 'phonepe://pay?pa=$upiId&pn=$encodedName&cu=INR';
-      case 'paytm':
-        return 'paytmmp://pay?pa=$upiId&pn=$encodedName&cu=INR';
-      default:
-        return 'upi://pay?pa=$upiId&pn=$encodedName&cu=INR';
-    }
-  }
+
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

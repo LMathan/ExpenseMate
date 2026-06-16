@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/storage/hive_helper.dart';
 import '../../../../core/services/firestore_sync_service.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/models/transaction_model.dart';
 import '../../../../core/models/budget_model.dart';
 import '../../../../core/models/goal_model.dart';
@@ -211,6 +212,13 @@ class SubscriptionsNotifier extends StateNotifier<List<SubscriptionModel>> {
       final updated = sub.copyWith(reminderEnabled: !sub.reminderEnabled);
       await box.put(id, updated.toMap());
       _syncService.syncSubscription(updated);
+      
+      if (updated.reminderEnabled) {
+        await NotificationService().scheduleSubscriptionReminder(updated);
+      } else {
+        await NotificationService().cancelSubscriptionReminder(updated.id);
+      }
+      
       loadSubscriptions();
     }
   }
@@ -235,6 +243,50 @@ class SubscriptionsNotifier extends StateNotifier<List<SubscriptionModel>> {
     );
     await box.put(id, sub.toMap());
     _syncService.syncSubscription(sub);
+    
+    await NotificationService().scheduleSubscriptionReminder(sub);
+    
+    loadSubscriptions();
+  }
+
+  Future<void> editSubscription({
+    required String id,
+    required String title,
+    required double amount,
+    required DateTime dueDate,
+    required String billingCycle,
+    required String category,
+    required bool reminderEnabled,
+  }) async {
+    final box = Hive.box(HiveHelper.subscriptionsBox);
+    final sub = SubscriptionModel(
+      id: id,
+      title: title,
+      amount: amount,
+      dueDate: dueDate,
+      billingCycle: billingCycle,
+      category: category,
+      reminderEnabled: reminderEnabled,
+    );
+    await box.put(id, sub.toMap());
+    _syncService.syncSubscription(sub);
+    
+    if (reminderEnabled) {
+      await NotificationService().scheduleSubscriptionReminder(sub);
+    } else {
+      await NotificationService().cancelSubscriptionReminder(id);
+    }
+    
+    loadSubscriptions();
+  }
+
+  Future<void> deleteSubscription(String id) async {
+    final box = Hive.box(HiveHelper.subscriptionsBox);
+    await box.delete(id);
+    _syncService.deleteSubscription(id);
+    
+    await NotificationService().cancelSubscriptionReminder(id);
+    
     loadSubscriptions();
   }
 }
@@ -268,6 +320,13 @@ class BillRemindersNotifier extends StateNotifier<List<BillReminderModel>> {
       final updated = bill.copyWith(isPaid: !bill.isPaid);
       await box.put(id, updated.toMap());
       _syncService.syncBill(updated);
+      
+      if (updated.isPaid) {
+        await NotificationService().cancelBillReminder(updated.id);
+      } else {
+        await NotificationService().scheduleBillReminder(updated);
+      }
+      
       loadBills();
     }
   }
@@ -292,6 +351,50 @@ class BillRemindersNotifier extends StateNotifier<List<BillReminderModel>> {
     );
     await box.put(id, bill.toMap());
     _syncService.syncBill(bill);
+    
+    await NotificationService().scheduleBillReminder(bill);
+    
+    loadBills();
+  }
+
+  Future<void> editBill({
+    required String id,
+    required String title,
+    required double amount,
+    required DateTime dueDate,
+    required String category,
+    required String recurrence,
+    required bool isPaid,
+  }) async {
+    final box = Hive.box(HiveHelper.billsBox);
+    final bill = BillReminderModel(
+      id: id,
+      title: title,
+      amount: amount,
+      dueDate: dueDate,
+      category: category,
+      isPaid: isPaid,
+      recurrence: recurrence,
+    );
+    await box.put(id, bill.toMap());
+    _syncService.syncBill(bill);
+    
+    if (isPaid) {
+      await NotificationService().cancelBillReminder(id);
+    } else {
+      await NotificationService().scheduleBillReminder(bill);
+    }
+    
+    loadBills();
+  }
+
+  Future<void> deleteBill(String id) async {
+    final box = Hive.box(HiveHelper.billsBox);
+    await box.delete(id);
+    _syncService.deleteBill(id);
+    
+    await NotificationService().cancelBillReminder(id);
+    
     loadBills();
   }
 }

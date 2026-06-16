@@ -641,18 +641,22 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               ? tx.totalAmount / totalSplitCount 
               : tx.amount;
 
+          final settledEmails = tx.settledWith.map((e) => e.trim().toLowerCase()).toList();
+
           if (tx.splitShares != null && tx.splitShares!.isNotEmpty) {
             double payerCredit = 0.0;
             for (var email in splitWith) {
+              if (settledEmails.contains(email)) continue;
               final share = tx.splitShares![email] ?? perHeadAmount;
               balances[email] = (balances[email] ?? 0.0) - share;
               payerCredit += share;
             }
             balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
           } else {
-            final payerCredit = perHeadAmount * splitWith.length;
+            final activeSplitWith = splitWith.where((e) => !settledEmails.contains(e)).toList();
+            final payerCredit = perHeadAmount * activeSplitWith.length;
             balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
-            for (var email in splitWith) {
+            for (var email in activeSplitWith) {
               balances[email] = (balances[email] ?? 0.0) - perHeadAmount;
             }
           }

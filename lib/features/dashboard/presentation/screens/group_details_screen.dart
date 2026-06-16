@@ -834,7 +834,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
                 if (isMemberPayer) {
                   statusText = 'Paid total bill';
                   statusColor = AppColors.electricBlue;
-                } else if (tx.isSettled) {
+                } else if (tx.isSettled || tx.settledWith.map((e) => e.trim().toLowerCase()).contains(email.trim().toLowerCase())) {
                   statusText = 'Settled';
                   statusColor = AppColors.emeraldGreen;
                 } else {
@@ -1491,20 +1491,40 @@ class _GroupTransactionHistory extends ConsumerWidget {
                                                     Navigator.pop(dialogCtx); // close dialog
                                                     Navigator.pop(ctx); // close bottom sheet
                                                     
-                                                    // Add Settlement transaction
-                                                    await ref.read(transactionProvider.notifier).addTransaction(
-                                                      amount: item.amount,
-                                                      category: 'Settlement',
-                                                      merchant: 'Settlement Payment',
-                                                      notes: 'Settlement: $fromName paid $toName',
-                                                      paymentMethod: 'Cash',
-                                                      date: DateTime.now(),
-                                                      splitWith: [item.toEmail],
-                                                      isSettled: true,
-                                                      paidByEmail: item.fromEmail,
-                                                      totalAmount: item.amount,
-                                                      groupId: group.id,
-                                                    );
+                                                    // Settle all unsettled transactions in this group between the two users
+                                                    final allTxs = ref.read(transactionProvider);
+                                                    final fromEmail = item.fromEmail.trim().toLowerCase();
+                                                    final toEmail = item.toEmail.trim().toLowerCase();
+                                                    final groupTxs = allTxs.where((tx) =>
+                                                      tx.groupId == group.id &&
+                                                      !tx.isSettled &&
+                                                      (
+                                                        (tx.paidByEmail.trim().toLowerCase() == fromEmail &&
+                                                         tx.splitWith.any((email) => email.trim().toLowerCase() == toEmail))
+                                                        ||
+                                                        (tx.paidByEmail.trim().toLowerCase() == toEmail &&
+                                                         tx.splitWith.any((email) => email.trim().toLowerCase() == fromEmail))
+                                                      )
+                                                    ).toList();
+
+                                                    for (var tx in groupTxs) {
+                                                      final list = List<String>.from(tx.settledWith);
+                                                      final isPayerCreditor = tx.paidByEmail.trim().toLowerCase() == toEmail;
+                                                      final targetEmailToAdd = isPayerCreditor ? fromEmail : toEmail;
+
+                                                      final splitWithEmails = tx.splitWith.map((e) => e.trim().toLowerCase()).toList();
+                                                      if (splitWithEmails.contains(targetEmailToAdd) && !list.contains(targetEmailToAdd)) {
+                                                        list.add(targetEmailToAdd);
+                                                      }
+
+                                                      final allSettled = splitWithEmails.every((email) => list.contains(email));
+
+                                                      final updatedTx = tx.copyWith(
+                                                        settledWith: list,
+                                                        isSettled: allSettled ? true : tx.isSettled,
+                                                      );
+                                                      await ref.read(transactionProvider.notifier).editTransaction(updatedTx);
+                                                    }
                                                     
                                                     if (context.mounted) {
                                                       ScaffoldMessenger.of(context).showSnackBar(

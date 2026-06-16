@@ -213,6 +213,16 @@ class FirestoreSyncService {
     await _uploadDocument('bills', bill.id, bill.toMap());
   }
 
+  // Delete single subscription
+  Future<void> deleteSubscription(String id) async {
+    await _deleteDocument('subscriptions', id);
+  }
+
+  // Delete single bill reminder
+  Future<void> deleteBill(String id) async {
+    await _deleteDocument('bills', id);
+  }
+
   // Push single challenge
   Future<void> syncChallenge(ChallengeModel challenge) async {
     await _uploadDocument('challenges', challenge.id, challenge.toMap());

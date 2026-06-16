@@ -183,7 +183,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with WidgetsBindingObse
               const Divider(height: 1),
               const SizedBox(height: 12),
               Text(
-                'App Version: 2.0.1',
+                'App Version: 2.0.3',
                 style: TextStyle(
                   fontSize: 11,
                   color: isDark ? Colors.white38 : Colors.black38,
@@ -1882,7 +1882,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with WidgetsBindingObse
               ),
               const SizedBox(height: 4),
               Text(
-                'Version 2.0.1',
+                'Version 2.0.3',
                 style: TextStyle(
                   fontSize: 11,
                   color: isDark ? Colors.white38 : Colors.black38,

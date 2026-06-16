@@ -9,6 +9,8 @@ import 'package:espenseai/features/expense/presentation/providers/expense_provid
 import 'package:espenseai/core/utils/category_emoji_helper.dart';
 import 'package:espenseai/features/dashboard/presentation/screens/day_details_screen.dart';
 import 'package:espenseai/core/widgets/vector_illustrations.dart';
+import 'package:espenseai/core/models/subscription_model.dart';
+import 'package:espenseai/core/models/bill_reminder_model.dart';
 
 class PlannerTab extends ConsumerStatefulWidget {
   const PlannerTab({super.key});
@@ -173,6 +175,160 @@ class _PlannerTabState extends ConsumerState<PlannerTab>
     );
   }
 
+  void _showEditSubscriptionDialog(SubscriptionModel sub) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleController = TextEditingController(text: sub.title);
+    final amountController = TextEditingController(text: sub.amount.toString());
+    String category = sub.category;
+    String cycle = sub.billingCycle;
+    DateTime dueDate = sub.dueDate;
+
+    showAnimatedDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.bgDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('Edit Subscription', style: TextStyle(color: Colors.white)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Subscription Name (e.g. Netflix)',
+                        labelStyle: TextStyle(color: AppColors.textSecondaryDark),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Amount (₹)',
+                        labelStyle: TextStyle(color: AppColors.textSecondaryDark),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: category,
+                      dropdownColor: isDark ? AppColors.cardDark : Colors.white,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      decoration: InputDecoration(
+                        labelText: 'Category',
+                        labelStyle: TextStyle(color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                      ),
+                      items: ['Entertainment', 'Bills', 'Services', 'Education', 'Other']
+                          .map((cat) => DropdownMenuItem(value: cat, child: Text('${getCategoryEmoji(cat)} $cat')))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => category = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: cycle,
+                      dropdownColor: AppColors.cardDark,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Billing Cycle',
+                        labelStyle: TextStyle(color: AppColors.textSecondaryDark),
+                      ),
+                      items: ['Monthly', 'Yearly', 'Weekly']
+                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => cycle = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Next Renewal: ', style: TextStyle(color: Colors.white)),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: dueDate,
+                              firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (picked != null) {
+                              setDialogState(() => dueDate = picked);
+                            }
+                          },
+                          child: Text(
+                            DateFormat('MMM dd, yyyy').format(dueDate),
+                            style: const TextStyle(color: AppColors.electricBlue, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    ref.read(subscriptionsProvider.notifier).deleteSubscription(sub.id);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Subscription deleted successfully.'),
+                        backgroundColor: AppColors.accentPink,
+                      ),
+                    );
+                  },
+                  child: const Text('Delete', style: TextStyle(color: AppColors.accentPink)),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark)),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final title = titleController.text.trim();
+                    final amount = double.tryParse(amountController.text) ?? 0.0;
+                    if (title.isNotEmpty && amount > 0) {
+                      ref.read(subscriptionsProvider.notifier).editSubscription(
+                            id: sub.id,
+                            title: title,
+                            amount: amount,
+                            dueDate: dueDate,
+                            billingCycle: cycle,
+                            category: category,
+                            reminderEnabled: sub.reminderEnabled,
+                          );
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Subscription updated successfully!'),
+                          backgroundColor: AppColors.emeraldGreen,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple, foregroundColor: Colors.white),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showAddBillDialog() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final titleController = TextEditingController();
@@ -312,6 +468,160 @@ class _PlannerTabState extends ConsumerState<PlannerTab>
     );
   }
 
+  void _showEditBillDialog(BillReminderModel bill) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleController = TextEditingController(text: bill.title);
+    final amountController = TextEditingController(text: bill.amount.toString());
+    String category = bill.category;
+    String recurrence = bill.recurrence;
+    DateTime dueDate = bill.dueDate;
+
+    showAnimatedDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.bgDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('Edit Bill Reminder', style: TextStyle(color: Colors.white)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Bill Name (e.g. Rent, Gas)',
+                        labelStyle: TextStyle(color: AppColors.textSecondaryDark),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Amount (₹)',
+                        labelStyle: TextStyle(color: AppColors.textSecondaryDark),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: category,
+                      dropdownColor: isDark ? AppColors.cardDark : Colors.white,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      decoration: InputDecoration(
+                        labelText: 'Category',
+                        labelStyle: TextStyle(color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                      ),
+                      items: ['Bills', 'Rent', 'EMI', 'Healthcare', 'Education', 'Other']
+                          .map((cat) => DropdownMenuItem(value: cat, child: Text('${getCategoryEmoji(cat)} $cat')))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => category = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: recurrence,
+                      dropdownColor: AppColors.cardDark,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Recurrence',
+                        labelStyle: TextStyle(color: AppColors.textSecondaryDark),
+                      ),
+                      items: ['One-time', 'Monthly', 'Yearly']
+                          .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => recurrence = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Due Date: ', style: TextStyle(color: Colors.white)),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: dueDate,
+                              firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (picked != null) {
+                              setDialogState(() => dueDate = picked);
+                            }
+                          },
+                          child: Text(
+                            DateFormat('MMM dd, yyyy').format(dueDate),
+                            style: const TextStyle(color: AppColors.electricBlue, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    ref.read(billsProvider.notifier).deleteBill(bill.id);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Bill reminder deleted successfully.'),
+                        backgroundColor: AppColors.accentPink,
+                      ),
+                    );
+                  },
+                  child: const Text('Delete', style: TextStyle(color: AppColors.accentPink)),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondaryDark)),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final title = titleController.text.trim();
+                    final amount = double.tryParse(amountController.text) ?? 0.0;
+                    if (title.isNotEmpty && amount > 0) {
+                      ref.read(billsProvider.notifier).editBill(
+                            id: bill.id,
+                            title: title,
+                            amount: amount,
+                            dueDate: dueDate,
+                            category: category,
+                            recurrence: recurrence,
+                            isPaid: bill.isPaid,
+                          );
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Bill reminder updated successfully!'),
+                          backgroundColor: AppColors.emeraldGreen,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple, foregroundColor: Colors.white),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final subs = ref.watch(subscriptionsProvider);
@@ -416,83 +726,86 @@ class _PlannerTabState extends ConsumerState<PlannerTab>
                                     final renewal = DateFormat(
                                       'MMM dd',
                                     ).format(sub.dueDate);
-                                    return GlassCard(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.electricBlue
-                                                  .withValues(alpha: 0.12),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.sync_rounded,
-                                              color: AppColors.electricBlue,
-                                              size: 20,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  sub.title,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isDark ? Colors.white : Colors.black87,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  '${getCategoryEmoji(sub.category)} ${sub.category} • Renews on $renewal',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: isDark
-                                                        ? AppColors.textSecondaryDark
-                                                        : AppColors.textSecondaryLight,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.end,
-                                            children: [
-                                              Text(
-                                                '₹${sub.amount.toStringAsFixed(0)}',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isDark ? Colors.white : Colors.black87,
-                                                ),
-                                              ),
-                                              GestureDetector(
-                                                onTap: () => ref
-                                                    .read(
-                                                      subscriptionsProvider
-                                                          .notifier,
-                                                    )
-                                                    .toggleReminder(sub.id),
-                                                child: Icon(
-                                                  sub.reminderEnabled
-                                                      ? Icons
-                                                            .notifications_active
-                                                      : Icons.notifications_off,
-                                                  size: 16,
-                                                  color: sub.reminderEnabled
-                                                      ? AppColors.accentOrange
-                                                      : AppColors
-                                                            .textSecondaryDark,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    );
+                                    return GestureDetector(
+                                       onTap: () => _showEditSubscriptionDialog(sub),
+                                       child: GlassCard(
+                                         padding: const EdgeInsets.all(12),
+                                         child: Row(
+                                           children: [
+                                             Container(
+                                               padding: const EdgeInsets.all(8),
+                                               decoration: BoxDecoration(
+                                                 color: AppColors.electricBlue
+                                                     .withValues(alpha: 0.12),
+                                                 shape: BoxShape.circle,
+                                               ),
+                                               child: const Icon(
+                                                 Icons.sync_rounded,
+                                                 color: AppColors.electricBlue,
+                                                 size: 20,
+                                               ),
+                                             ),
+                                             const SizedBox(width: 12),
+                                             Expanded(
+                                               child: Column(
+                                                 crossAxisAlignment:
+                                                     CrossAxisAlignment.start,
+                                                 children: [
+                                                   Text(
+                                                     sub.title,
+                                                     style: TextStyle(
+                                                       fontWeight: FontWeight.bold,
+                                                       color: isDark ? Colors.white : Colors.black87,
+                                                     ),
+                                                   ),
+                                                   Text(
+                                                     '${getCategoryEmoji(sub.category)} ${sub.category} • Renews on $renewal',
+                                                     style: TextStyle(
+                                                       fontSize: 11,
+                                                       color: isDark
+                                                           ? AppColors.textSecondaryDark
+                                                           : AppColors.textSecondaryLight,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                             ),
+                                             Column(
+                                               crossAxisAlignment:
+                                                   CrossAxisAlignment.end,
+                                               children: [
+                                                 Text(
+                                                   '₹${sub.amount.toStringAsFixed(0)}',
+                                                   style: TextStyle(
+                                                     fontWeight: FontWeight.bold,
+                                                     color: isDark ? Colors.white : Colors.black87,
+                                                   ),
+                                                 ),
+                                                 GestureDetector(
+                                                   onTap: () => ref
+                                                       .read(
+                                                         subscriptionsProvider
+                                                             .notifier,
+                                                       )
+                                                       .toggleReminder(sub.id),
+                                                   child: Icon(
+                                                     sub.reminderEnabled
+                                                         ? Icons
+                                                               .notifications_active
+                                                         : Icons.notifications_off,
+                                                     size: 16,
+                                                     color: sub.reminderEnabled
+                                                         ? AppColors.accentOrange
+                                                         : AppColors
+                                                               .textSecondaryDark,
+                                                   ),
+                                                 ),
+                                               ],
+                                             ),
+                                           ],
+                                         ),
+                                       ),
+                                     );
                                   },
                                 ),
                         ),
@@ -554,33 +867,37 @@ class _PlannerTabState extends ConsumerState<PlannerTab>
                                                 .togglePaid(bill.id),
                                           ),
                                           const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  bill.title,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isDark ? Colors.white : Colors.black87,
-                                                    decoration: bill.isPaid
-                                                        ? TextDecoration.lineThrough
-                                                        : null,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  '${getCategoryEmoji(bill.category)} ${bill.category} • Due by $due',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: isDark
-                                                        ? AppColors.textSecondaryDark
-                                                        : AppColors.textSecondaryLight,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                           Expanded(
+                                             child: GestureDetector(
+                                               onTap: () => _showEditBillDialog(bill),
+                                               behavior: HitTestBehavior.opaque,
+                                               child: Column(
+                                                 crossAxisAlignment:
+                                                     CrossAxisAlignment.start,
+                                                 children: [
+                                                   Text(
+                                                     bill.title,
+                                                     style: TextStyle(
+                                                       fontWeight: FontWeight.bold,
+                                                       color: isDark ? Colors.white : Colors.black87,
+                                                       decoration: bill.isPaid
+                                                           ? TextDecoration.lineThrough
+                                                           : null,
+                                                     ),
+                                                   ),
+                                                   Text(
+                                                     '${getCategoryEmoji(bill.category)} ${bill.category} • Due by $due',
+                                                     style: TextStyle(
+                                                       fontSize: 11,
+                                                       color: isDark
+                                                           ? AppColors.textSecondaryDark
+                                                           : AppColors.textSecondaryLight,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                             ),
+                                           ),
                                           Text(
                                             '₹${bill.amount.toStringAsFixed(0)}',
                                             style: TextStyle(

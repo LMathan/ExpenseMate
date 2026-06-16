@@ -49,18 +49,22 @@ class ToGetDetailsScreen extends ConsumerWidget {
             ? tx.totalAmount / totalSplitCount 
             : tx.amount;
 
+        final settledEmails = tx.settledWith.map((e) => e.trim().toLowerCase()).toList();
+
         if (tx.splitShares != null && tx.splitShares!.isNotEmpty) {
           double payerCredit = 0.0;
           for (var email in splitWith) {
+            if (settledEmails.contains(email)) continue;
             final share = tx.splitShares![email] ?? perHeadAmount;
             balances[email] = (balances[email] ?? 0.0) - share;
             payerCredit += share;
           }
           balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
         } else {
-          final payerCredit = perHeadAmount * splitWith.length;
+          final activeSplitWith = splitWith.where((e) => !settledEmails.contains(e)).toList();
+          final payerCredit = perHeadAmount * activeSplitWith.length;
           balances[payerEmail] = (balances[payerEmail] ?? 0.0) + payerCredit;
-          for (var email in splitWith) {
+          for (var email in activeSplitWith) {
             balances[email] = (balances[email] ?? 0.0) - perHeadAmount;
           }
         }
@@ -175,36 +179,42 @@ class ToGetDetailsScreen extends ConsumerWidget {
               );
 
               try {
-                // 1. Find all unsettled transactions in this group where current user paid (paidByEmail == currentEmail)
-                // and debtor (item.fromEmail) is in the split list (splitWith contains item.fromEmail).
+                // 1. Find all unsettled transactions in this group involving both users (in either direction)
+                // so that the net debt is cleared completely.
                 final allTxs = ref.read(transactionProvider);
+                final myEmail = currentEmail.trim().toLowerCase();
+                final debtorEmail = item.fromEmail.trim().toLowerCase();
                 final groupTxs = allTxs.where((tx) => 
                   tx.groupId == item.groupId && 
                   !tx.isSettled &&
-                  tx.paidByEmail.trim().toLowerCase() == currentEmail.trim().toLowerCase() &&
-                  tx.splitWith.any((email) => email.trim().toLowerCase() == item.fromEmail.trim().toLowerCase())
+                  (
+                    (tx.paidByEmail.trim().toLowerCase() == myEmail &&
+                     tx.splitWith.any((email) => email.trim().toLowerCase() == debtorEmail))
+                    ||
+                    (tx.paidByEmail.trim().toLowerCase() == debtorEmail &&
+                     tx.splitWith.any((email) => email.trim().toLowerCase() == myEmail))
+                  )
                 ).toList();
 
-                // 2. Mark them as settled
+                // 2. Mark them as settled for this member
                 for (var tx in groupTxs) {
-                  final updatedTx = tx.copyWith(isSettled: true);
+                  final list = List<String>.from(tx.settledWith);
+                  final isPayerMe = tx.paidByEmail.trim().toLowerCase() == myEmail;
+                  final targetEmailToAdd = isPayerMe ? debtorEmail : myEmail;
+
+                  final splitWithEmails = tx.splitWith.map((e) => e.trim().toLowerCase()).toList();
+                  if (splitWithEmails.contains(targetEmailToAdd) && !list.contains(targetEmailToAdd)) {
+                    list.add(targetEmailToAdd);
+                  }
+
+                  final allSettled = splitWithEmails.every((email) => list.contains(email));
+
+                  final updatedTx = tx.copyWith(
+                    settledWith: list,
+                    isSettled: allSettled ? true : tx.isSettled,
+                  );
                   await ref.read(transactionProvider.notifier).editTransaction(updatedTx);
                 }
-
-                // 3. Add a settlement transaction in history
-                await ref.read(transactionProvider.notifier).addTransaction(
-                  amount: item.amount,
-                  category: 'Settlement',
-                  merchant: 'Settlement Payment',
-                  notes: 'Settlement: ${item.fromName} paid Me',
-                  paymentMethod: 'Cash',
-                  date: DateTime.now(),
-                  splitWith: [currentEmail],
-                  isSettled: true,
-                  paidByEmail: item.fromEmail,
-                  totalAmount: item.amount,
-                  groupId: item.groupId,
-                );
 
                 if (context.mounted) {
                   Navigator.pop(context); // close loading indicator

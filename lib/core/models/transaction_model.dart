@@ -17,6 +17,7 @@ class TransactionModel {
   final String? groupId;
   final String? createdBy;
   final Map<String, double>? splitShares;
+  final List<String> settledWith;
 
   TransactionModel({
     required this.id,
@@ -37,6 +38,7 @@ class TransactionModel {
     this.groupId,
     this.createdBy,
     this.splitShares,
+    this.settledWith = const [],
   });
 
   factory TransactionModel.fromMap(Map<dynamic, dynamic> map) {
@@ -61,6 +63,7 @@ class TransactionModel {
       splitShares: map['splitShares'] != null
           ? Map<String, double>.from((map['splitShares'] as Map).map((k, v) => MapEntry(k as String, (v as num).toDouble())))
           : null,
+      settledWith: map['settledWith'] != null ? List<String>.from(map['settledWith']) : [],
     );
   }
 
@@ -84,6 +87,7 @@ class TransactionModel {
       'groupId': groupId,
       'createdBy': createdBy,
       'splitShares': splitShares,
+      'settledWith': settledWith,
     };
   }
 
@@ -106,6 +110,7 @@ class TransactionModel {
     String? groupId,
     String? createdBy,
     Map<String, double>? splitShares,
+    List<String>? settledWith,
   }) {
     return TransactionModel(
       id: id ?? this.id,
@@ -126,6 +131,7 @@ class TransactionModel {
       groupId: groupId ?? this.groupId,
       createdBy: createdBy ?? this.createdBy,
       splitShares: splitShares ?? this.splitShares,
+      settledWith: settledWith ?? this.settledWith,
     );
   }
 }
