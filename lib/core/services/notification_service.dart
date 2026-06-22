@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -88,13 +90,29 @@ class NotificationService {
       debugPrint(token ?? 'Could not retrieve FCM token');
       debugPrint('=============================================');
 
+      // Update token in Firestore if authenticated
+      await updateFcmTokenInFirestore();
+
+      // Listen for token refreshes
+      _firebaseMessaging.onTokenRefresh.listen((refreshedToken) async {
+        debugPrint('FCM Token refreshed: $refreshedToken');
+        await updateFcmTokenInFirestore();
+      });
+
       // Setup foreground messaging listener
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('FCM: Foreground message received: ${message.messageId}');
-        if (message.notification != null) {
+        final notification = message.notification;
+        final data = message.data;
+        if (notification != null) {
           showInstantNotification(
-            message.notification?.title ?? 'Notification',
-            message.notification?.body ?? '',
+            notification.title ?? 'Notification',
+            notification.body ?? '',
+          );
+        } else if (data.containsKey('title') && data.containsKey('body')) {
+          showInstantNotification(
+            data['title']!,
+            data['body']!,
           );
         }
       });
@@ -435,6 +453,39 @@ class NotificationService {
       debugPrint('NotificationService: Successfully scheduled 7 days of funny random alerts.');
     } catch (e) {
       debugPrint('NotificationService: Error scheduling funny notifications: $e');
+    }
+  }
+
+  Future<void> updateFcmTokenInFirestore() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final token = await _firebaseMessaging.getToken();
+        if (token != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set({'fcmToken': token}, SetOptions(merge: true));
+          debugPrint('NotificationService: FCM token updated in Firestore for user: ${user.uid}');
+        }
+      }
+    } catch (e) {
+      debugPrint('NotificationService: Error updating FCM token in Firestore: $e');
+    }
+  }
+
+  Future<void> removeFcmTokenFromFirestore() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'fcmToken': FieldValue.delete()});
+        debugPrint('NotificationService: FCM token removed from Firestore for user: ${user.uid}');
+      }
+    } catch (e) {
+      debugPrint('NotificationService: Error removing FCM token from Firestore: $e');
     }
   }
 }

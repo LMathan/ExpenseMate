@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/storage/hive_helper.dart';
 import '../../../../core/services/firestore_sync_service.dart';
+import '../../../../core/services/notification_service.dart';
 
 enum AuthStatus { initial, authenticating, syncing, authenticated, guest, unauthenticated }
 
@@ -95,6 +96,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         // Sync cloud database to local Hive in the background
         _syncService.syncCloudToLocal();
+        NotificationService().updateFcmTokenInFirestore();
       } else if (isGuest) {
         state = AuthState(
           status: AuthStatus.guest,
@@ -174,6 +176,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           profilePicPath: updatedPath,
           profilePicUrl: updatedUrl,
         );
+        NotificationService().updateFcmTokenInFirestore();
         return true;
       } else {
         state = AuthState(
@@ -233,6 +236,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
         // Upload initial local/offline configuration to new Cloud profile in background
         _syncService.syncLocalToCloud();
+        NotificationService().updateFcmTokenInFirestore();
         return true;
       } else {
         state = AuthState(
@@ -324,6 +328,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           profilePicPath: updatedPath,
           profilePicUrl: updatedUrl,
         );
+        NotificationService().updateFcmTokenInFirestore();
         return true;
       } else {
         debugPrint('Google Sign-In: Firebase returned null user.');
@@ -369,6 +374,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     try {
+      await NotificationService().removeFcmTokenFromFirestore();
+    } catch (_) {}
+
+    try {
       await _firebaseAuth.signOut();
     } catch (_) {}
 
@@ -396,6 +405,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> deleteAccount() async {
+    try {
+      await NotificationService().removeFcmTokenFromFirestore();
+    } catch (_) {}
+
     try {
       await _firebaseAuth.currentUser?.delete();
       await _firebaseAuth.signOut();
