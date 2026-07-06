@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:id="@+id/header_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_alignParentTop="true">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💸 ExpenseMate"
+            android:textColor="#BB86FC"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+        <TextView
+            android:id="@+id/text_month_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Month"
+            android:textColor="#9E9EAF"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium" />
+    </LinearLayout>
+
+    <!-- Main Content Area -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/header_layout"
+        android:layout_above="@id/actions_layout"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
+        android:orientation="vertical">
+
+        <!-- Row 1: Spends and Get/Owe splits -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <!-- Spends Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="This Month Spend"
+                    android:textColor="#9E9EAF"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium" />
+                <TextView
+                    android:id="@+id/text_month_spend"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="₹0"
+                    android:textColor="#FFFFFF"
+                    android:textSize="28sp"
+                    android:fontFamily="sans-serif-condensed-light"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Split Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.9"
+                android:orientation="vertical"
+                android:gravity="end|center_vertical">
+                <TextView
+                    android:id="@+id/text_you_get"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Get ₹0"
+                    android:textColor="#4CAF50"
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/text_you_owe"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Owe ₹0"
+                    android:textColor="#F44336"
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Divider 1 -->
+        <View
+            android:id="@+id/divider_1"
+            android:layout_width="match_parent"
+            android:layout_height="1.5dp"
+            android:background="#1CFFFFFF"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Row 2: Budget Info (Dynamically GONE if no budget) -->
+        <LinearLayout
+            android:id="@+id/budget_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Budget Remaining"
+                    android:textColor="#9E9EAF"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium" />
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/text_budget_limit"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Limit: ₹0"
+                    android:textColor="#9E9EAF"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/text_budget_left"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₹0 left"
+                android:textColor="#FFB74D"
+                android:textSize="20sp"
+                android:fontFamily="sans-serif-condensed-light"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp" />
+
+            <!-- Divider 2 inside budget section -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1.5dp"
+                android:background="#1CFFFFFF"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp" />
+        </LinearLayout>
+
+        <!-- Row 3: Daily Summary & Top Category -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Today's Count"
+                    android:textColor="#9E9EAF"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium" />
+                <TextView
+                    android:id="@+id/text_expenses_today"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0 txn"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="end">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Top Category"
+                    android:textColor="#9E9EAF"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium" />
+                <TextView
+                    android:id="@+id/text_top_category"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="None"
+                    android:textColor="#40C4FF"
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Bottom Actions -->
+    <LinearLayout
+        android:id="@+id/actions_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <!-- Add Expense Button -->
+        <LinearLayout
+            android:id="@+id/btn_add_expense"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/button_background"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="➕ Add"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <!-- Splits Button -->
+        <LinearLayout
+            android:id="@+id/btn_splits"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/button_background"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="👥 Splits"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <!-- Dashboard Button -->
+        <LinearLayout
+            android:id="@+id/btn_dashboard"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1.2"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/button_background"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📊 Dashboard"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+    </LinearLayout>
+
+</RelativeLayout>

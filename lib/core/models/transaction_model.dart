@@ -134,4 +134,15 @@ class TransactionModel {
       settledWith: settledWith ?? this.settledWith,
     );
   }
+
+  double? getSplitShareFor(String? email) {
+    if (splitShares == null || email == null) return null;
+    final target = email.trim().toLowerCase();
+    for (var entry in splitShares!.entries) {
+      if (entry.key.trim().toLowerCase() == target) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
 }

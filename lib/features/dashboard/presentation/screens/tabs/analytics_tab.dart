@@ -12,6 +12,8 @@ import 'package:espenseai/core/utils/category_emoji_helper.dart';
 import 'package:espenseai/core/widgets/vector_illustrations.dart';
 import 'package:hive/hive.dart';
 import 'package:espenseai/core/storage/hive_helper.dart';
+import 'package:intl/intl.dart';
+import 'package:espenseai/features/dashboard/presentation/providers/dashboard_provider.dart';
 
 class AnalyticsTab extends ConsumerStatefulWidget {
   const AnalyticsTab({super.key});
@@ -26,20 +28,20 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
   final ReportService _reportService = ReportService();
   bool _isExporting = false;
 
-  void _exportAndShare(String type) async {
+  void _exportAndShare(String type, DateTime selectedMonth) async {
     setState(() => _isExporting = true);
     try {
       File file;
       String subject;
       if (type == 'PDF') {
-        file = await _reportService.generatePdfReport();
-        subject = 'My ExpenseMate Statement - PDF';
+        file = await _reportService.generatePdfReport(selectedMonth: selectedMonth);
+        subject = 'My ExpenseMate Statement (${DateFormat('MMMM yyyy').format(selectedMonth)}) - PDF';
       } else if (type == 'Excel') {
-        file = await _reportService.generateExcelReport();
-        subject = 'My ExpenseMate Statement - Spreadsheet';
+        file = await _reportService.generateExcelReport(selectedMonth: selectedMonth);
+        subject = 'My ExpenseMate Statement (${DateFormat('MMMM yyyy').format(selectedMonth)}) - Spreadsheet';
       } else {
-        file = await _reportService.generateCsvReport();
-        subject = 'My ExpenseMate Statement - CSV';
+        file = await _reportService.generateCsvReport(selectedMonth: selectedMonth);
+        subject = 'My ExpenseMate Statement (${DateFormat('MMMM yyyy').format(selectedMonth)}) - CSV';
       }
       await _reportService.shareReport(file, subject: subject);
     } catch (e) {
@@ -57,36 +59,14 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
   Widget build(BuildContext context) {
     final txs = ref.watch(transactionProvider);
     final budget = ref.watch(budgetProvider);
+    final selectedMonth = ref.watch(analyticsMonthProvider);
     final settingsBox = Hive.box(HiveHelper.settingsBox);
-    final resetDay = settingsBox.get('budget_reset_day', defaultValue: 1) as int;
 
-    DateTime getCycleStartDate(int day) {
-      final now = DateTime.now();
-      int year = now.year;
-      int month = now.month;
-      int daysInMonth = DateTime(year, month + 1, 0).day;
-      int targetDay = day > daysInMonth ? daysInMonth : day;
-      if (now.day >= targetDay) {
-        return DateTime(year, month, targetDay);
-      } else {
-        int prevMonth = month - 1;
-        int prevYear = year;
-        if (prevMonth == 0) {
-          prevMonth = 12;
-          prevYear = year - 1;
-        }
-        int daysInPrevMonth = DateTime(prevYear, prevMonth + 1, 0).day;
-        int prevTargetDay = day > daysInPrevMonth ? daysInPrevMonth : day;
-        return DateTime(prevYear, prevMonth, prevTargetDay);
-      }
-    }
+    final filteredTxs = txs.where((tx) => tx.date.year == selectedMonth.year && tx.date.month == selectedMonth.month).toList();
 
-    final cycleStart = getCycleStartDate(resetDay);
     double currentMonthSpent = 0;
-    for (var tx in txs) {
-      if (tx.date.compareTo(cycleStart) >= 0) {
-        currentMonthSpent += tx.amount;
-      }
+    for (var tx in filteredTxs) {
+      currentMonthSpent += tx.amount;
     }
 
     final currentMonthIncome = budget.monthlyIncome;
@@ -104,7 +84,7 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
     double totalSpent = 0.0;
     final Map<String, double> dailySums = {};
 
-    for (var tx in txs) {
+    for (var tx in filteredTxs) {
       totalSpent += tx.amount;
       categorySums[tx.category] = (categorySums[tx.category] ?? 0.0) + tx.amount;
       merchantSums[tx.merchant] = (merchantSums[tx.merchant] ?? 0.0) + tx.amount;
@@ -126,40 +106,76 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
 
     final avgDailySpend = dailySums.isEmpty ? 0.0 : totalSpent / dailySums.length;
 
+    // Last Month Savings Comparison
+    final lastMonth = DateTime(selectedMonth.year, selectedMonth.month - 1);
+    final lastMonthTxs = txs.where((tx) => tx.date.year == lastMonth.year && tx.date.month == lastMonth.month).toList();
+    double lastMonthSpent = 0;
+    for (var tx in lastMonthTxs) {
+      lastMonthSpent += tx.amount;
+    }
+    final lastMonthSavings = currentMonthIncome - lastMonthSpent;
+    final double savingsDiffPercent;
+    if (lastMonthSavings == 0) {
+      savingsDiffPercent = currentMonthSavings > 0 ? 100.0 : 0.0;
+    } else {
+      savingsDiffPercent = ((currentMonthSavings - lastMonthSavings) / lastMonthSavings.abs() * 100);
+    }
+
     final List<double> trendValues;
     final List<String> trendLabels;
 
     if (_timeRange == 'Weekly') {
       final now = DateTime.now();
-      final currentWeekday = now.weekday;
-      final startOfWeek = now.subtract(Duration(days: currentWeekday - 1));
-      final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+      if (selectedMonth.year == now.year && selectedMonth.month == now.month) {
+        final currentWeekday = now.weekday;
+        final startOfWeek = now.subtract(Duration(days: currentWeekday - 1));
+        final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
 
-      final List<double> weeklyRealValues = List.filled(7, 0.0);
-      for (var tx in txs) {
-        final txDateDay = DateTime(tx.date.year, tx.date.month, tx.date.day);
-        final diffDays = txDateDay.difference(startOfWeekDay).inDays;
-        if (diffDays >= 0 && diffDays < 7) {
-          weeklyRealValues[diffDays] += tx.amount;
+        final List<double> weeklyRealValues = List.filled(7, 0.0);
+        for (var tx in filteredTxs) {
+          final txDateDay = DateTime(tx.date.year, tx.date.month, tx.date.day);
+          final diffDays = txDateDay.difference(startOfWeekDay).inDays;
+          if (diffDays >= 0 && diffDays < 7) {
+            weeklyRealValues[diffDays] += tx.amount;
+          }
         }
+        trendValues = weeklyRealValues;
+        trendLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      } else {
+        final daysInMonth = DateTime(selectedMonth.year, selectedMonth.month + 1, 0).day;
+        final int numWeeks = daysInMonth > 28 ? 5 : 4;
+        final List<double> weeklyRealValues = List.filled(numWeeks, 0.0);
+        for (var tx in filteredTxs) {
+          final day = tx.date.day;
+          if (day <= 7) {
+            weeklyRealValues[0] += tx.amount;
+          } else if (day <= 14) {
+            weeklyRealValues[1] += tx.amount;
+          } else if (day <= 21) {
+            weeklyRealValues[2] += tx.amount;
+          } else if (day <= 28) {
+            weeklyRealValues[3] += tx.amount;
+          } else if (numWeeks == 5) {
+            weeklyRealValues[4] += tx.amount;
+          }
+        }
+        trendValues = weeklyRealValues;
+        trendLabels = numWeeks == 5 ? ['W1', 'W2', 'W3', 'W4', 'W5'] : ['W1', 'W2', 'W3', 'W4'];
       }
-      trendValues = weeklyRealValues;
-      trendLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     } else {
-      final now = DateTime.now();
       final List<String> monthlyLabels = [];
       final List<double> monthlyRealValues = List.filled(6, 0.0);
       final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
       for (int i = 5; i >= 0; i--) {
-        final targetDate = DateTime(now.year, now.month - i, 1);
+        final targetDate = DateTime(selectedMonth.year, selectedMonth.month - i, 1);
         monthlyLabels.add(monthNames[targetDate.month - 1]);
       }
 
       for (var tx in txs) {
         for (int i = 5; i >= 0; i--) {
-          final targetMonthStart = DateTime(now.year, now.month - i, 1);
-          final targetMonthEnd = DateTime(now.year, now.month - i + 1, 1).subtract(const Duration(seconds: 1));
+          final targetMonthStart = DateTime(selectedMonth.year, selectedMonth.month - i, 1);
+          final targetMonthEnd = DateTime(selectedMonth.year, selectedMonth.month - i + 1, 1).subtract(const Duration(seconds: 1));
           if (tx.date.isAfter(targetMonthStart.subtract(const Duration(seconds: 1))) && 
               tx.date.isBefore(targetMonthEnd.add(const Duration(seconds: 1)))) {
             monthlyRealValues[5 - i] += tx.amount;
@@ -193,6 +209,55 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text('Analytics & Reports', style: AppTextStyles.heading2(isDark: isDark)),
+                    const SizedBox(height: 16),
+                    // Month Switcher
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: borderColor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.chevron_left_rounded, color: textColor),
+                            onPressed: () {
+                              ref.read(analyticsMonthProvider.notifier).state = DateTime(selectedMonth.year, selectedMonth.month - 1);
+                            },
+                          ),
+                          Text(
+                            DateFormat('MMMM yyyy').format(selectedMonth),
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.chevron_right_rounded,
+                              color: selectedMonth.year == DateTime.now().year && selectedMonth.month == DateTime.now().month
+                                  ? subColor.withOpacity(0.3)
+                                  : textColor,
+                            ),
+                            onPressed: selectedMonth.year == DateTime.now().year && selectedMonth.month == DateTime.now().month
+                                ? null
+                                : () {
+                                    ref.read(analyticsMonthProvider.notifier).state = DateTime(selectedMonth.year, selectedMonth.month + 1);
+                                  },
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 20),
 
                     // Chart type pills
@@ -333,6 +398,73 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Savings Comparison Card
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (savingsDiffPercent >= 0 ? AppColors.emeraldGreen : AppColors.accentPink).withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              savingsDiffPercent >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                              color: savingsDiffPercent >= 0 ? AppColors.emeraldGreen : AppColors.accentPink,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  savingsDiffPercent >= 0
+                                      ? 'Savings Increased'
+                                      : 'Savings Decreased',
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  savingsDiffPercent >= 0
+                                      ? '${savingsDiffPercent.abs().toStringAsFixed(1)}% more savings than ${DateFormat('MMMM').format(lastMonth)}'
+                                      : '${savingsDiffPercent.abs().toStringAsFixed(1)}% less savings than ${DateFormat('MMMM').format(lastMonth)}',
+                                  style: TextStyle(color: subColor, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: (savingsDiffPercent >= 0 ? AppColors.emeraldGreen : AppColors.accentPink).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${savingsDiffPercent >= 0 ? '+' : ''}${savingsDiffPercent.toStringAsFixed(1)}%',
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: savingsDiffPercent >= 0 ? AppColors.emeraldGreen : AppColors.accentPink,
+                              ),
                             ),
                           ),
                         ],
@@ -515,11 +647,11 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Expanded(child: _buildExportButton('PDF', Icons.picture_as_pdf_rounded, Colors.redAccent, isDark)),
+                        Expanded(child: _buildExportButton('PDF', Icons.picture_as_pdf_rounded, Colors.redAccent, isDark, selectedMonth)),
                         const SizedBox(width: 12),
-                        Expanded(child: _buildExportButton('Excel', Icons.table_chart_rounded, Colors.green, isDark)),
+                        Expanded(child: _buildExportButton('Excel', Icons.table_chart_rounded, Colors.green, isDark, selectedMonth)),
                         const SizedBox(width: 12),
-                        Expanded(child: _buildExportButton('CSV', Icons.notes_rounded, Colors.blue, isDark)),
+                        Expanded(child: _buildExportButton('CSV', Icons.notes_rounded, Colors.blue, isDark, selectedMonth)),
                       ],
                     ),
                     const SizedBox(height: 100),
@@ -597,10 +729,10 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
     );
   }
 
-  Widget _buildExportButton(String label, IconData icon, Color color, bool isDark) {
+  Widget _buildExportButton(String label, IconData icon, Color color, bool isDark, DateTime selectedMonth) {
     final textColor = isDark ? Colors.white : AppColors.textPrimaryLight;
     return InkWell(
-      onTap: () => _exportAndShare(label),
+      onTap: () => _exportAndShare(label, selectedMonth),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),

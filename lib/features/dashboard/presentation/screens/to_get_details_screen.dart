@@ -55,7 +55,7 @@ class ToGetDetailsScreen extends ConsumerWidget {
           double payerCredit = 0.0;
           for (var email in splitWith) {
             if (settledEmails.contains(email)) continue;
-            final share = tx.splitShares![email] ?? perHeadAmount;
+            final share = tx.getSplitShareFor(email) ?? perHeadAmount;
             balances[email] = (balances[email] ?? 0.0) - share;
             payerCredit += share;
           }
@@ -110,7 +110,7 @@ class ToGetDetailsScreen extends ConsumerWidget {
         // If current user is the creditor (we receive money)
         if (creditorEmail == myEmail) {
           String fromName = debtorEmail.split('@').first;
-          final idx = group.memberEmails.indexOf(debtorEmail);
+          final idx = group.memberEmails.indexWhere((e) => e.trim().toLowerCase() == debtorEmail);
           if (idx != -1 && idx < group.memberNames.length) {
             fromName = group.memberNames[idx];
           }

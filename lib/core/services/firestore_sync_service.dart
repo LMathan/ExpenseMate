@@ -38,8 +38,19 @@ class FirestoreSyncService {
           ? Map<String, dynamic>.from(data['splitShares'])
           : null;
 
-      if (splitShares != null && splitShares.containsKey(currentUserEmail)) {
-        userShare = (splitShares[currentUserEmail] as num).toDouble();
+      double? customShare;
+      if (splitShares != null && currentUserEmail != null) {
+        final searchEmail = currentUserEmail.trim().toLowerCase();
+        for (var entry in splitShares.entries) {
+          if (entry.key.trim().toLowerCase() == searchEmail) {
+            customShare = (entry.value as num).toDouble();
+            break;
+          }
+        }
+      }
+
+      if (customShare != null) {
+        userShare = customShare;
       } else if (totalAmount > 0) {
         userShare = totalAmount / totalSplitCount;
       } else {
@@ -104,10 +115,20 @@ class FirestoreSyncService {
             if (memberUid != _uid) {
               // Calculate this specific member's share
               double memberShare = 0.0;
-              final memberEmail = group.memberEmails[group.memberUids.indexOf(memberUid)];
+              final memberEmail = group.memberEmails[group.memberUids.indexOf(memberUid)].trim().toLowerCase();
               
-              if (tx.splitShares != null && tx.splitShares!.containsKey(memberEmail)) {
-                memberShare = tx.splitShares![memberEmail]!;
+              double? customShare;
+              if (tx.splitShares != null) {
+                for (var entry in tx.splitShares!.entries) {
+                  if (entry.key.trim().toLowerCase() == memberEmail) {
+                    customShare = entry.value;
+                    break;
+                  }
+                }
+              }
+
+              if (customShare != null) {
+                memberShare = customShare;
               } else if (tx.totalAmount > 0) {
                 memberShare = tx.totalAmount / (tx.splitWith.length + 1);
               } else {

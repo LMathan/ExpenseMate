@@ -18,10 +18,13 @@ import 'tabs/home_tab.dart';
 import 'tabs/analytics_tab.dart';
 import 'tabs/planner_tab.dart';
 import 'tabs/profile_tab.dart';
+import 'tabs/ai_insights_tab.dart';
 import 'create_group_screen.dart';
 import 'package:espenseai/features/auth/presentation/providers/auth_provider.dart';
 import 'package:espenseai/features/dashboard/presentation/providers/dashboard_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:home_widget/home_widget.dart';
+import 'package:espenseai/core/services/widget_service.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -39,12 +42,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   StreamSubscription? _groupsSubscription;
   StreamSubscription? _transactionsSubscription;
   StreamSubscription? _profileSubscription;
+  StreamSubscription? _widgetLinkSubscription;
 
   final List<Widget> _tabs = [
     const HomeTab(),
     const AnalyticsTab(),
     const PlannerTab(),
     const ProfileTab(),
+    const AiInsightsTab(),
   ];
 
   @override
@@ -63,6 +68,62 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       _checkFirstTimeUser();
       _setupRealtimeSync();
       _setupNotifications();
+      _initHomeWidget();
+    });
+  }
+
+  void _initHomeWidget() {
+    HomeWidget.setAppGroupId(WidgetService.appGroupId);
+    HomeWidget.initiallyLaunchedFromHomeWidget().then((uri) {
+      if (uri != null) {
+        _handleWidgetNavigation(uri);
+      }
+    });
+
+    _widgetLinkSubscription = HomeWidget.widgetClicked.listen((uri) {
+      if (uri != null) {
+        _handleWidgetNavigation(uri);
+      }
+    });
+
+    _listenAndSyncWidgets();
+    WidgetService.updateWidgetData(ref);
+  }
+
+  void _handleWidgetNavigation(Uri uri) {
+    final host = uri.host.toLowerCase();
+    final path = uri.path.toLowerCase();
+
+    if (host == 'add_expense' || path == '/add_expense') {
+      Navigator.push(
+        context,
+        AppPageRoute(
+          page: const AddExpenseScreen(),
+          type: RouteTransitionType.slideUp,
+        ),
+      );
+    } else if (host == 'splits' || path == '/splits') {
+      Navigator.push(
+        context,
+        AppPageRoute(
+          page: const CreateGroupScreen(),
+          type: RouteTransitionType.slideUp,
+        ),
+      );
+    } else if (host == 'dashboard' || path == '/dashboard') {
+      ref.read(dashboardIndexProvider.notifier).state = 0; // Go to Home Tab
+    }
+  }
+
+  void _listenAndSyncWidgets() {
+    ref.listenManual(transactionProvider, (previous, next) {
+      WidgetService.updateWidgetData(ref);
+    });
+    ref.listenManual(budgetProvider, (previous, next) {
+      WidgetService.updateWidgetData(ref);
+    });
+    ref.listenManual(groupsProvider, (previous, next) {
+      WidgetService.updateWidgetData(ref);
     });
   }
 
@@ -73,6 +134,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _groupsSubscription?.cancel();
     _transactionsSubscription?.cancel();
     _profileSubscription?.cancel();
+    _widgetLinkSubscription?.cancel();
     super.dispose();
   }
 

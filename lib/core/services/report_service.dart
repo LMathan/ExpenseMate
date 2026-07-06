@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:excel/excel.dart' as ex;
 import 'package:hive/hive.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -9,7 +10,7 @@ import '../storage/hive_helper.dart';
 import '../models/transaction_model.dart';
 
 class ReportService {
-  List<TransactionModel> _getTransactions() {
+  List<TransactionModel> _getTransactions({DateTime? selectedMonth}) {
     final tBox = Hive.box(HiveHelper.transactionsBox);
     final List<TransactionModel> txs = [];
     for (var key in tBox.keys) {
@@ -18,13 +19,16 @@ class ReportService {
       );
     }
     txs.sort((a, b) => b.date.compareTo(a.date));
+    if (selectedMonth != null) {
+      return txs.where((tx) => tx.date.year == selectedMonth.year && tx.date.month == selectedMonth.month).toList();
+    }
     return txs;
   }
 
   // 1. Generate PDF Report
-  Future<File> generatePdfReport() async {
+  Future<File> generatePdfReport({DateTime? selectedMonth}) async {
     final pdf = pw.Document();
-    final txs = _getTransactions();
+    final txs = _getTransactions(selectedMonth: selectedMonth);
 
     double totalSpent = txs.fold(0.0, (sum, item) => sum + item.amount);
 
@@ -39,7 +43,9 @@ class ReportService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
-                    'ExpenseMate Financial Report',
+                    selectedMonth != null
+                        ? 'ExpenseMate Report - ${DateFormat('MMMM yyyy').format(selectedMonth)}'
+                        : 'ExpenseMate Financial Report',
                     style: pw.TextStyle(
                       fontSize: 24,
                       fontWeight: pw.FontWeight.bold,
@@ -109,10 +115,10 @@ class ReportService {
   }
 
   // 2. Generate Excel Report
-  Future<File> generateExcelReport() async {
+  Future<File> generateExcelReport({DateTime? selectedMonth}) async {
     final excel = ex.Excel.createExcel();
     final sheet = excel['Sheet1'];
-    final txs = _getTransactions();
+    final txs = _getTransactions(selectedMonth: selectedMonth);
 
     // Headers
     sheet.appendRow([
@@ -150,8 +156,8 @@ class ReportService {
   }
 
   // 3. Generate CSV Report
-  Future<File> generateCsvReport() async {
-    final txs = _getTransactions();
+  Future<File> generateCsvReport({DateTime? selectedMonth}) async {
+    final txs = _getTransactions(selectedMonth: selectedMonth);
     final buffer = StringBuffer();
 
     // Headers

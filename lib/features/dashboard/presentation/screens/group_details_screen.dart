@@ -645,6 +645,14 @@ class _GroupTransactionHistory extends ConsumerWidget {
     required this.textSecondary,
   });
 
+  String _cleanMerchantName(String merchant, String groupName) {
+    final suffix = ' ($groupName)';
+    if (merchant.endsWith(suffix)) {
+      return merchant.substring(0, merchant.length - suffix.length);
+    }
+    return merchant;
+  }
+
   void _showSplitDetails(BuildContext context, WidgetRef ref, TransactionModel tx) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final payerEmail = tx.paidByEmail.isNotEmpty ? tx.paidByEmail : (currentUser?.email ?? '');
@@ -654,7 +662,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
     if (payerEmail == currentUser?.email) {
       payerName = 'You';
     } else {
-      final idx = group.memberEmails.indexOf(payerEmail);
+      final idx = group.memberEmails.indexWhere((e) => e.trim().toLowerCase() == payerEmail.trim().toLowerCase());
       if (idx != -1) {
         payerName = group.memberNames[idx];
       } else {
@@ -666,9 +674,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
     final perHeadAmount = tx.splitWith.isNotEmpty 
         ? (tx.totalAmount > 0 ? tx.totalAmount / (tx.splitWith.length + 1) : tx.amount)
         : tx.amount;
-    final myShareAmount = tx.splitShares != null && tx.splitShares!.containsKey(currentUser?.email)
-        ? tx.splitShares![currentUser?.email]!
-        : perHeadAmount;
+    final myShareAmount = tx.getSplitShareFor(currentUser?.email) ?? perHeadAmount;
 
     showModalBottomSheet(
       context: context,
@@ -719,7 +725,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          tx.merchant.isEmpty ? tx.category : tx.merchant,
+                          _cleanMerchantName(tx.merchant.isEmpty ? tx.category : tx.merchant, group.name),
                           style: GoogleFonts.inter(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -838,9 +844,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
                   statusText = 'Settled';
                   statusColor = AppColors.emeraldGreen;
                 } else {
-                  final memberShareAmount = tx.splitShares != null && tx.splitShares!.containsKey(email)
-                      ? tx.splitShares![email]!
-                      : perHeadAmount;
+                  final memberShareAmount = tx.getSplitShareFor(email) ?? perHeadAmount;
                   statusText = 'Owes ₹${memberShareAmount.toStringAsFixed(0)}';
                   statusColor = AppColors.accentOrange;
                 }
@@ -1037,12 +1041,12 @@ class _GroupTransactionHistory extends ConsumerWidget {
     // Map member email to net balance
     final Map<String, double> balances = {};
     for (var email in group.memberEmails) {
-      balances[email] = 0.0;
+      balances[email.trim().toLowerCase()] = 0.0;
     }
 
     for (var tx in unsettledTxs) {
-      final payerEmail = tx.paidByEmail.isNotEmpty ? tx.paidByEmail : (group.createdBy.isEmpty ? group.memberEmails.first : group.createdBy);
-      final splitWith = tx.splitWith;
+      final payerEmail = (tx.paidByEmail.isNotEmpty ? tx.paidByEmail : (group.createdBy.isEmpty ? group.memberEmails.first : group.createdBy)).trim().toLowerCase();
+      final splitWith = tx.splitWith.map((e) => e.trim().toLowerCase()).toList();
       if (splitWith.isEmpty) continue;
 
       final totalSplitCount = splitWith.length + 1;
@@ -1054,7 +1058,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
         // Custom split calculation
         double payerCredit = 0.0;
         for (var email in splitWith) {
-          final share = tx.splitShares![email] ?? perHeadAmount;
+          final share = tx.getSplitShareFor(email) ?? perHeadAmount;
           balances[email] = (balances[email] ?? 0.0) - share;
           payerCredit += share;
         }
@@ -1126,7 +1130,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
 
     // Helper functions to resolve details
     String getMemberName(String email) {
-      final idx = group.memberEmails.indexOf(email);
+      final idx = group.memberEmails.indexWhere((e) => e.trim().toLowerCase() == email.trim().toLowerCase());
       if (idx != -1 && idx < group.memberNames.length) {
         return group.memberNames[idx];
       }
@@ -1134,7 +1138,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
     }
 
     String getMemberUid(String email) {
-      final idx = group.memberEmails.indexOf(email);
+      final idx = group.memberEmails.indexWhere((e) => e.trim().toLowerCase() == email.trim().toLowerCase());
       if (idx != -1 && idx < group.memberUids.length) {
         return group.memberUids[idx];
       }
@@ -1142,7 +1146,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
     }
 
     Color getMemberColor(String email) {
-      final idx = group.memberEmails.indexOf(email);
+      final idx = group.memberEmails.indexWhere((e) => e.trim().toLowerCase() == email.trim().toLowerCase());
       final colors = [
         AppColors.primaryPurple,
         AppColors.electricBlue,
@@ -1695,9 +1699,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
               final perHead = tx.splitWith.isNotEmpty
                   ? (tx.totalAmount > 0 ? tx.totalAmount / (tx.splitWith.length + 1) : tx.amount)
                   : tx.amount;
-              final myShareOnCard = tx.splitShares != null && tx.splitShares!.containsKey(currentUser?.email)
-                  ? tx.splitShares![currentUser?.email]!
-                  : perHead;
+              final myShareOnCard = tx.getSplitShareFor(currentUser?.email) ?? perHead;
 
               return GestureDetector(
                 onTap: () => _showSplitDetails(context, ref, tx),
@@ -1736,7 +1738,7 @@ class _GroupTransactionHistory extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  tx.merchant.isEmpty ? tx.category : tx.merchant,
+                                  _cleanMerchantName(tx.merchant.isEmpty ? tx.category : tx.merchant, group.name),
                                   style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
                                 ),
                                 const SizedBox(height: 2),

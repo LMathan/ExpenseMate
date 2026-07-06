@@ -62,6 +62,43 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
 
     final totalFiltered = filtered.fold<double>(0, (s, tx) => s + tx.amount);
 
+    final List<HistoryListItem> listItems = [];
+    if (filtered.isNotEmpty) {
+      if (_sortBy.startsWith('Date')) {
+        String? currentMonthStr;
+        double currentMonthTotal = 0;
+        int insertHeaderIndex = 0;
+
+        for (var tx in filtered) {
+          final monthStr = DateFormat('MMMM yyyy').format(tx.date);
+          if (currentMonthStr == null) {
+            currentMonthStr = monthStr;
+            currentMonthTotal = tx.amount;
+            listItems.add(HeaderItem(monthStr, 0.0));
+            insertHeaderIndex = listItems.length - 1;
+            listItems.add(TransactionItem(tx));
+          } else if (monthStr == currentMonthStr) {
+            currentMonthTotal += tx.amount;
+            listItems.add(TransactionItem(tx));
+          } else {
+            listItems[insertHeaderIndex] = HeaderItem(currentMonthStr, currentMonthTotal);
+            currentMonthStr = monthStr;
+            currentMonthTotal = tx.amount;
+            listItems.add(HeaderItem(monthStr, 0.0));
+            insertHeaderIndex = listItems.length - 1;
+            listItems.add(TransactionItem(tx));
+          }
+        }
+        if (currentMonthStr != null) {
+          listItems[insertHeaderIndex] = HeaderItem(currentMonthStr, currentMonthTotal);
+        }
+      } else {
+        for (var tx in filtered) {
+          listItems.add(TransactionItem(tx));
+        }
+      }
+    }
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -194,7 +231,7 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
               ),
 
             Expanded(
-              child: filtered.isEmpty
+              child: listItems.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -205,11 +242,21 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
                         ],
                       ),
                     )
-                  : ListView.separated(
+                  : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) => _buildCard(filtered[index], isDark, textColor, subColor),
+                      itemCount: listItems.length,
+                      itemBuilder: (context, index) {
+                        final item = listItems[index];
+                        if (item is HeaderItem) {
+                          return _buildHeaderCard(item, isDark, textColor, subColor);
+                        } else if (item is TransactionItem) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _buildCard(item.tx, isDark, textColor, subColor),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
                     ),
             ),
           ],
@@ -358,6 +405,41 @@ class _ExpenseHistoryScreenState extends ConsumerState<ExpenseHistoryScreen> {
       ),
     );
   }
+
+  Widget _buildHeaderCard(HeaderItem item, bool isDark, Color textColor, Color subColor) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            item.title.toUpperCase(),
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: AppColors.electricBlue,
+              letterSpacing: 1.0,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.electricBlue.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Spent: ₹${item.total.toStringAsFixed(0)}',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white70 : AppColors.textPrimaryLight,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DetailChip extends StatelessWidget {
@@ -408,4 +490,17 @@ class _ActionBtn extends StatelessWidget {
       ),
     );
   }
+}
+
+abstract class HistoryListItem {}
+
+class HeaderItem extends HistoryListItem {
+  final String title;
+  final double total;
+  HeaderItem(this.title, this.total);
+}
+
+class TransactionItem extends HistoryListItem {
+  final dynamic tx;
+  TransactionItem(this.tx);
 }

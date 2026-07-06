@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Top Content Area -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/actions_layout"
+        android:layout_marginBottom="10dp"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
+
+        <!-- Left Column: Spends & Top Category -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1.1"
+            android:orientation="vertical"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💸 ExpenseMate"
+                android:textColor="#BB86FC"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="This Month Spend"
+                android:textColor="#9E9EAF"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/text_month_spend"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₹0"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp"
+                android:fontFamily="sans-serif-condensed-light"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/text_top_category"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Top: None"
+                android:textColor="#40C4FF"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <!-- Right Column: Splits, Budget & Tx Count -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0.9"
+            android:orientation="vertical"
+            android:gravity="center_vertical|end">
+
+            <!-- Get row -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <TextView
+                    android:id="@+id/text_you_get"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Get ₹0"
+                    android:textColor="#4CAF50"
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" 🟢"
+                    android:textSize="8sp" />
+            </LinearLayout>
+
+            <!-- Owe row -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <TextView
+                    android:id="@+id/text_you_owe"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Owe ₹0"
+                    android:textColor="#F44336"
+                    android:textSize="14sp"
+                    android:fontFamily="sans-serif-medium" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" 🔴"
+                    android:textSize="8sp" />
+            </LinearLayout>
+
+            <!-- Today tx count -->
+            <TextView
+                android:id="@+id/text_expenses_today"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0 txn today"
+                android:textColor="#E0E0E0"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="4dp" />
+
+            <!-- Budget Left if exists -->
+            <TextView
+                android:id="@+id/text_budget_left"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Left: ₹0"
+                android:textColor="#FFB74D"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Bottom Actions Area -->
+    <LinearLayout
+        android:id="@+id/actions_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <!-- Add Expense Button -->
+        <LinearLayout
+            android:id="@+id/btn_add_expense"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/button_background"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="➕ Add Expense"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <!-- Splits Button -->
+        <LinearLayout
+            android:id="@+id/btn_splits"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/button_background"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="👥 Splits"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+    </LinearLayout>
+
+</RelativeLayout>

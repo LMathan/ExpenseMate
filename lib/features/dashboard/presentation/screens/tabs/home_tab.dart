@@ -647,7 +647,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             double payerCredit = 0.0;
             for (var email in splitWith) {
               if (settledEmails.contains(email)) continue;
-              final share = tx.splitShares![email] ?? perHeadAmount;
+              final share = tx.getSplitShareFor(email) ?? perHeadAmount;
               balances[email] = (balances[email] ?? 0.0) - share;
               payerCredit += share;
             }
@@ -754,28 +754,52 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                         ),
                       ],
                     ),
-                    BouncyGestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        AppPageRoute(
-                          page: const ProfileTab(showBackButton: true),
-                          type: RouteTransitionType.slideRight,
-                        ),
-                      ),
-                      child: Hero(
-                        tag: 'profile_avatar',
-                        child: Container(
-                          padding: const EdgeInsets.all(2.5),
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: AppColors.primaryGradient,
+                    Row(
+                      children: [
+                        BouncyGestureDetector(
+                          onTap: () => ref.read(dashboardIndexProvider.notifier).state = 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.primaryPurple.withValues(alpha: isDark ? 0.15 : 0.08),
+                              border: Border.all(
+                                color: AppColors.primaryPurple.withValues(alpha: isDark ? 0.3 : 0.15),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.auto_awesome,
+                              color: AppColors.primaryPurple,
+                              size: 20,
+                            ),
                           ),
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundImage: imageProvider,
+                        ),
+                        const SizedBox(width: 12),
+                        BouncyGestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            AppPageRoute(
+                              page: const ProfileTab(showBackButton: true),
+                              type: RouteTransitionType.slideRight,
+                            ),
+                          ),
+                          child: Hero(
+                            tag: 'profile_avatar',
+                            child: Container(
+                              padding: const EdgeInsets.all(2.5),
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: AppColors.primaryGradient,
+                              ),
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundImage: imageProvider,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     )
                   ],
                 ),
@@ -830,7 +854,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                     // Box 1: Today's Spend
                     Expanded(
                       child: BouncyGestureDetector(
-                        onTap: () => ref.read(dashboardIndexProvider.notifier).state = 1,
+                        onTap: () {
+                          ref.read(analyticsMonthProvider.notifier).state = DateTime.now();
+                          ref.read(dashboardIndexProvider.notifier).state = 1;
+                        },
                         child: _buildSolidCard(
                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                           child: Column(
@@ -878,7 +905,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                     // Box 2: This Month's Spend
                     Expanded(
                       child: BouncyGestureDetector(
-                        onTap: () => ref.read(dashboardIndexProvider.notifier).state = 1,
+                        onTap: () {
+                          ref.read(analyticsMonthProvider.notifier).state = DateTime.now();
+                          ref.read(dashboardIndexProvider.notifier).state = 1;
+                        },
                         child: _buildSolidCard(
                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                           child: Column(
