@@ -49,7 +49,7 @@ class HiveHelper {
       await sSettings.put('user_name', 'User');
       await sSettings.put('user_email', '');
       await sSettings.put('user_currency', '₹');
-      await sSettings.put('theme_mode', 'dark');
+      await sSettings.put('theme_mode', 'light');
       await sSettings.put('biometrics_enabled', false);
       await sSettings.put('user_xp', 0);
       await sSettings.put('user_level', 1);

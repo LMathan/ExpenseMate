@@ -14,6 +14,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:hive/hive.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:espenseai/core/storage/hive_helper.dart';
 import 'package:espenseai/features/expense/presentation/providers/expense_provider.dart';
 import 'package:espenseai/features/expense/presentation/screens/add_expense_screen.dart';
@@ -493,29 +494,492 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     );
   }
 
-  void _triggerOcrScan() async {
-    final image = await _ocrService.pickImage(Theme.of(context).platform == TargetPlatform.android 
-        ? ImageSource.camera 
-        : ImageSource.gallery);
-    if (image != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Receipt uploaded. Scanning items...')),
-      );
-      final ocrResult = await _ocrService.scanReceipt(File(image.path));
-      if (mounted) {
-        Navigator.push(
-          context,
-          AppPageRoute(
-            page: AddExpenseScreen(
-              preFilledAmount: ocrResult['amount'] as double,
-              preFilledCategory: ocrResult['category'] as String,
-              preFilledMerchant: ocrResult['merchant'] as String,
-              preFilledNotes: ocrResult['notes'] as String,
-            ),
+  void _triggerOcrScan() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final textColor = isDark ? Colors.white : AppColors.textPrimaryLight;
+        final subColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+        final bgColor = isDark ? AppColors.cardDark : Colors.white;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, -8),
+              )
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.electricBlue.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.electricBlue, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Scan Receipt",
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: textColor,
+                          ),
+                        ),
+                        Text(
+                          "Smart OCR details extraction",
+                          style: TextStyle(fontSize: 11, color: subColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildScanOptionTile(
+                icon: Icons.camera_alt_rounded,
+                title: "Take Photo",
+                subtitle: "Use camera to scan physical receipt",
+                color: AppColors.primaryPurple,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _processPickImage(ImageSource.camera);
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildScanOptionTile(
+                icon: Icons.photo_library_rounded,
+                title: "Choose from Gallery",
+                subtitle: "Select a photo from your photo library",
+                color: AppColors.electricBlue,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _processPickImage(ImageSource.gallery);
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildScanOptionTile(
+                icon: Icons.science_rounded,
+                title: "Try Demo Receipts (Simulation)",
+                subtitle: "Test scanning with sample receipts",
+                color: AppColors.accentOrange,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showDemoReceiptsDialog();
+                },
+              ),
+            ],
           ),
         );
+      },
+    );
+  }
+
+  Widget _buildScanOptionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: isDark ? Colors.white54 : Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _processPickImage(ImageSource source) async {
+    if (source == ImageSource.camera) {
+      final hasPermission = await _checkCameraPermission();
+      if (!hasPermission) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Camera permission is required to take a picture of the receipt.'),
+              backgroundColor: AppColors.accentPink,
+            ),
+          );
+        }
+        return;
       }
     }
+
+    final image = await _ocrService.pickImage(source);
+    if (image != null) {
+      _runOcrScanningLoader(File(image.path));
+    }
+  }
+
+  Future<bool> _checkCameraPermission() async {
+    final status = await Permission.camera.status;
+    if (status.isGranted) return true;
+    final result = await Permission.camera.request();
+    return result.isGranted;
+  }
+
+  void _runOcrScanningLoader(File file, {String? mockType}) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Show high-fidelity scanning simulator dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (stCtx, setState) {
+            return FutureBuilder<Map<String, dynamic>>(
+              future: _ocrService.scanReceipt(file, mockType: mockType),
+              builder: (futCtx, snapshot) {
+                if (snapshot.connectionState == ConnectionState.done) {
+                  // Scanning done, close dialog and navigate to AddExpenseScreen
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    Navigator.pop(dialogCtx);
+                    if (snapshot.hasData && snapshot.data != null) {
+                      final data = snapshot.data!;
+                      if (data.containsKey('error')) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(data['error'] as String),
+                            backgroundColor: AppColors.accentPink,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          AppPageRoute(
+                            page: AddExpenseScreen(
+                              preFilledAmount: data['amount'] as double,
+                              preFilledCategory: data['category'] as String,
+                              preFilledMerchant: data['merchant'] as String,
+                              preFilledNotes: data['notes'] as String,
+                              preFilledReceiptPath: file.path,
+                            ),
+                          ),
+                        );
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to extract receipt data.'),
+                          backgroundColor: AppColors.accentPink,
+                        ),
+                      );
+                    }
+                  });
+                }
+
+                // Dynamic progress steps based on duration
+                return Dialog(
+                  backgroundColor: Colors.transparent,
+                  insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.cardDark : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isDark ? Colors.white.withValues(alpha: 0.08) : AppColors.borderLight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Pulsing OCR receipt visual simulator
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isDark ? Colors.white12 : Colors.grey.shade300,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: List.generate(4, (index) => Container(
+                                  height: 4,
+                                  width: index == 3 ? 30 : 50,
+                                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: (isDark ? Colors.white24 : Colors.grey.shade400),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                )),
+                              ),
+                            ),
+                            // Scanning horizontal laser effect
+                            _ScanningLaserLine(),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          "Smart OCR Scanner",
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Loading step indicator text
+                        _ScanningStepText(),
+                        const SizedBox(height: 20),
+                        // Premium gradient progress bar
+                        const SizedBox(
+                          height: 6,
+                          width: 140,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.all(Radius.circular(3)),
+                            child: LinearProgressIndicator(
+                              color: AppColors.electricBlue,
+                              backgroundColor: Colors.black12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showDemoReceiptsDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final textColor = isDark ? Colors.white : Colors.black87;
+        final bgColor = isDark ? AppColors.cardDark : Colors.white;
+
+        return AlertDialog(
+          backgroundColor: bgColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(
+            'Select a Demo Receipt',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: textColor),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                _buildDemoReceiptTile(
+                  merchant: 'Starbucks Coffee',
+                  amount: '₹380.00',
+                  category: 'Food',
+                  color: const Color(0xFF00704A), // Starbucks green
+                  icon: Icons.coffee_rounded,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _runOcrScanningLoader(File('starbucks.png'), mockType: 'starbucks');
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildDemoReceiptTile(
+                  merchant: 'Amazon India',
+                  amount: '₹1,249.00',
+                  category: 'Shopping',
+                  color: const Color(0xFFFF9900), // Amazon orange
+                  icon: Icons.shopping_bag_rounded,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _runOcrScanningLoader(File('amazon.png'), mockType: 'amazon');
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildDemoReceiptTile(
+                  merchant: 'Shell Petrol',
+                  amount: '₹1,500.00',
+                  category: 'Fuel',
+                  color: const Color(0xFFFFD500), // Shell yellow
+                  icon: Icons.local_gas_station_rounded,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _runOcrScanningLoader(File('shell.png'), mockType: 'shell');
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildDemoReceiptTile(
+                  merchant: 'Electricity Utility',
+                  amount: '₹2,840.00',
+                  category: 'Bills',
+                  color: const Color(0xFFE2B93B),
+                  icon: Icons.electric_bolt_rounded,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _runOcrScanningLoader(File('electricity.png'), mockType: 'electricity');
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.outfit(color: AppColors.primaryPurple, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDemoReceiptTile({
+    required String merchant,
+    required String amount,
+    required String category,
+    required Color color,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.grey.shade200,
+        ),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        title: Text(
+          merchant,
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        subtitle: Text(
+          category,
+          style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.black54),
+        ),
+        trailing: Text(
+          amount,
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: AppColors.emeraldGreen,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSolidCard({
@@ -1086,14 +1550,6 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           context,
                           AppPageRoute(page: const AddExpenseScreen()),
                         ),
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildQuickAction(
-                        icon: Icons.qr_code_scanner_rounded,
-                        label: 'Scan Receipt',
-                        color: AppColors.electricBlue,
-                        onTap: _triggerOcrScan,
                       ),
                     ),
                     Expanded(
@@ -2838,6 +3294,105 @@ class _BouncyGestureDetectorState extends State<BouncyGestureDetector>
         scale: _scale,
         child: widget.child,
       ),
+    );
+  }
+}
+
+class _ScanningLaserLine extends StatefulWidget {
+  @override
+  State<_ScanningLaserLine> createState() => _ScanningLaserLineState();
+}
+
+class _ScanningLaserLineState extends State<_ScanningLaserLine> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Positioned(
+          top: 10 + (_controller.value * 80),
+          left: 6,
+          right: 6,
+          child: Container(
+            height: 3,
+            decoration: BoxDecoration(
+              color: AppColors.electricBlue,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.electricBlue.withValues(alpha: 0.8),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ScanningStepText extends StatefulWidget {
+  @override
+  State<_ScanningStepText> createState() => _ScanningStepTextState();
+}
+
+class _ScanningStepTextState extends State<_ScanningStepText> {
+  int _currentStep = 0;
+  final List<String> _steps = [
+    "Uploading receipt image...",
+    "Running OCR text extraction...",
+    "Analyzing receipt line items...",
+    "Matching category and merchant...",
+    "Finalizing transaction draft...",
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() async {
+    for (int i = 1; i < _steps.length; i++) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        setState(() {
+          _currentStep = i;
+        });
+      } else {
+        break;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Text(
+      _steps[_currentStep],
+      style: GoogleFonts.inter(
+        fontSize: 12,
+        color: isDark ? Colors.white60 : Colors.black54,
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }

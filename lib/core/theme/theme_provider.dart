@@ -7,7 +7,7 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) {
 });
 
 class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.dark) {
+  ThemeNotifier() : super(ThemeMode.light) {
     _loadTheme();
   }
 
@@ -18,13 +18,13 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
     try {
       final box = Hive.box(_boxName);
       final mode = box.get(_key);
-      if (mode == 'light') {
-        state = ThemeMode.light;
-      } else {
+      if (mode == 'dark') {
         state = ThemeMode.dark;
+      } else {
+        state = ThemeMode.light;
       }
     } catch (_) {
-      state = ThemeMode.dark;
+      state = ThemeMode.light;
     }
   }
 

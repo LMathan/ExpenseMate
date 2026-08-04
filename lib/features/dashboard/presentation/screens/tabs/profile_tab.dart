@@ -181,9 +181,66 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with WidgetsBindingObse
               _buildFeatureRow(Icons.security_rounded, 'Security Vault', 'Keep data safe behind biometric lock.'),
               const SizedBox(height: 16),
               const Divider(height: 1),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'CRAFTED BY',
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryPurple,
+                        letterSpacing: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        'assets/images/skillforge_logo.png',
+                        height: 36,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'ExpenseMate is proudly made by SkillForge Technology. We craft premium, user-friendly digital tools to simplify and elevate your daily life.',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        height: 1.4,
+                        color: isDark ? Colors.white60 : Colors.black54,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
               const SizedBox(height: 12),
               Text(
-                'App Version: 2.1.0',
+                'App Version: 3.0.0',
                 style: TextStyle(
                   fontSize: 11,
                   color: isDark ? Colors.white38 : Colors.black38,
@@ -1882,7 +1939,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> with WidgetsBindingObse
               ),
               const SizedBox(height: 4),
               Text(
-                'Version 2.1.0',
+                'Version 3.0.0',
                 style: TextStyle(
                   fontSize: 11,
                   color: isDark ? Colors.white38 : Colors.black38,

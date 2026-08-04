@@ -7,12 +7,17 @@ import 'package:espenseai/core/widgets/glass_card.dart';
 import 'package:espenseai/features/expense/presentation/providers/expense_provider.dart';
 import 'package:espenseai/core/utils/category_emoji_helper.dart';
 import 'package:espenseai/core/widgets/vector_illustrations.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:io';
 
 class AddExpenseScreen extends ConsumerStatefulWidget {
   final double? preFilledAmount;
   final String? preFilledCategory;
   final String? preFilledMerchant;
   final String? preFilledNotes;
+  final String? preFilledReceiptPath;
   final dynamic editTransaction; // When set, this is an edit operation
 
   const AddExpenseScreen({
@@ -21,6 +26,7 @@ class AddExpenseScreen extends ConsumerStatefulWidget {
     this.preFilledCategory,
     this.preFilledMerchant,
     this.preFilledNotes,
+    this.preFilledReceiptPath,
     this.editTransaction,
   });
 
@@ -33,6 +39,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   final _amountController = TextEditingController();
   final _merchantController = TextEditingController();
   final _notesController = TextEditingController();
+  
+  String _receiptPath = '';
+  bool _isReceiptUploaded = false;
 
   String _selectedCategory = 'Food';
   String _selectedPaymentMethod = 'UPI';
@@ -74,19 +83,25 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       _merchantController.text = tx.merchant ?? '';
       _notesController.text = tx.notes ?? '';
       _selectedDate = tx.date ?? DateTime.now();
+      _receiptPath = tx.receiptPath ?? '';
+      _isReceiptUploaded = tx.isReceiptUploaded ?? false;
       if (_categories.contains(tx.category)) _selectedCategory = tx.category;
       final names = _paymentMethods.map((m) => m['name']!).toList();
       if (names.contains(tx.paymentMethod)) _selectedPaymentMethod = tx.paymentMethod;
       return;
     }
     if (widget.preFilledAmount != null && widget.preFilledAmount! > 0) {
-      _amountController.text = widget.preFilledAmount!.toStringAsFixed(0);
+      _amountController.text = widget.preFilledAmount!.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '');
     }
     if (widget.preFilledMerchant != null) {
       _merchantController.text = widget.preFilledMerchant!;
     }
     if (widget.preFilledNotes != null) {
       _notesController.text = widget.preFilledNotes!;
+    }
+    if (widget.preFilledReceiptPath != null) {
+      _receiptPath = widget.preFilledReceiptPath!;
+      _isReceiptUploaded = true;
     }
     if (widget.preFilledCategory != null &&
         _categories.contains(widget.preFilledCategory)) {
@@ -137,6 +152,26 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       final notes = _notesController.text.trim();
       final isEditing = widget.editTransaction != null;
 
+      // Copy receipt file persistently if it is temporary
+      String savedReceiptPath = _receiptPath;
+      bool savedIsUploaded = _isReceiptUploaded;
+      if (_receiptPath.isNotEmpty && !_receiptPath.contains('/app_flutter/receipts/')) {
+        try {
+          final appDocDir = await getApplicationDocumentsDirectory();
+          final receiptsDir = Directory('${appDocDir.path}/receipts');
+          if (!await receiptsDir.exists()) {
+            await receiptsDir.create(recursive: true);
+          }
+          final uniqueId = DateTime.now().millisecondsSinceEpoch;
+          final newFile = File('${receiptsDir.path}/receipt_$uniqueId.jpg');
+          await File(_receiptPath).copy(newFile.path);
+          savedReceiptPath = newFile.path;
+          savedIsUploaded = true;
+        } catch (e) {
+          debugPrint("Error copying receipt file: $e");
+        }
+      }
+
       if (isEditing) {
         final updated = widget.editTransaction.copyWith(
           amount: amount,
@@ -145,6 +180,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
           notes: notes,
           paymentMethod: _selectedPaymentMethod,
           date: _selectedDate,
+          isReceiptUploaded: savedIsUploaded,
+          receiptPath: savedReceiptPath,
         );
         await ref.read(transactionProvider.notifier).editTransaction(updated);
       } else {
@@ -155,6 +192,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
           notes: notes,
           paymentMethod: _selectedPaymentMethod,
           date: _selectedDate,
+          isReceiptUploaded: savedIsUploaded,
+          receiptPath: savedReceiptPath,
         );
       }
 
@@ -400,6 +439,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 20),
+                      _buildReceiptSection(isDark),
                     ],
                   ),
                 ),
@@ -462,52 +503,55 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               size: 20,
                             ),
                             const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'METHOD',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-                                    fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'METHOD',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                                DropdownButton<String>(
-                                  value: _selectedPaymentMethod,
-                                  dropdownColor: isDark ? AppColors.cardDark : Colors.white,
-                                  iconEnabledColor: isDark ? Colors.white : AppColors.textPrimaryLight,
-                                  isDense: true,
-                                  underline: const SizedBox(),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                                  DropdownButton<String>(
+                                    value: _selectedPaymentMethod,
+                                    dropdownColor: isDark ? AppColors.cardDark : Colors.white,
+                                    iconEnabledColor: isDark ? Colors.white : AppColors.textPrimaryLight,
+                                    isDense: true,
+                                    isExpanded: true,
+                                    underline: const SizedBox(),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : AppColors.textPrimaryLight,
+                                    ),
+                                    items: _paymentMethods.map((m) {
+                                      return DropdownMenuItem(
+                                        value: m['name'],
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(m['emoji']!,
+                                                style: const TextStyle(
+                                                    fontSize: 15)),
+                                            const SizedBox(width: 6),
+                                            Text(m['name']!, style: TextStyle(color: isDark ? Colors.white : AppColors.textPrimaryLight)),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setState(() {
+                                          _selectedPaymentMethod = val;
+                                        });
+                                      }
+                                    },
                                   ),
-                                  items: _paymentMethods.map((m) {
-                                    return DropdownMenuItem(
-                                      value: m['name'],
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(m['emoji']!,
-                                              style: const TextStyle(
-                                                  fontSize: 15)),
-                                          const SizedBox(width: 6),
-                                          Text(m['name']!, style: TextStyle(color: isDark ? Colors.white : AppColors.textPrimaryLight)),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() {
-                                        _selectedPaymentMethod = val;
-                                      });
-                                    }
-                                  },
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -541,6 +585,193 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         ),
       ),
       ),
+    );
+  }
+
+  Widget _buildReceiptSection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'RECEIPT ATTACHMENT',
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primaryPurple,
+                letterSpacing: 1.2,
+              ),
+            ),
+            if (_receiptPath.isNotEmpty)
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _receiptPath = '';
+                    _isReceiptUploaded = false;
+                  });
+                },
+                icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.accentPink),
+                label: Text(
+                  'Remove',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: AppColors.accentPink,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _receiptPath.isNotEmpty
+            ? Container(
+                height: 160,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : Colors.grey.shade200,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Image.file(
+                          File(_receiptPath),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withValues(alpha: 0.4),
+                                Colors.transparent,
+                              ],
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        right: 12,
+                        child: Text(
+                          _receiptPath.split('/').last,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : InkWell(
+                onTap: _pickReceiptFromScreen,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? Colors.white10 : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_photo_alternate_rounded,
+                        color: isDark ? Colors.white54 : Colors.black45,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Attach Receipt Photo',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ],
+    );
+  }
+
+  void _pickReceiptFromScreen() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final textColor = isDark ? Colors.white : AppColors.textPrimaryLight;
+        final bgColor = isDark ? AppColors.cardDark : Colors.white;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Attach Receipt',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primaryPurple),
+                title: const Text('Take Photo'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final picker = ImagePicker();
+                  final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+                  if (picked != null) {
+                    setState(() {
+                      _receiptPath = picked.path;
+                      _isReceiptUploaded = true;
+                    });
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: AppColors.electricBlue),
+                title: const Text('Choose from Gallery'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final picker = ImagePicker();
+                  final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                  if (picked != null) {
+                    setState(() {
+                      _receiptPath = picked.path;
+                      _isReceiptUploaded = true;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

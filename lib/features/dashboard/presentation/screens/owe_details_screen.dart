@@ -13,6 +13,7 @@ import 'group_details_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'package:espenseai/core/services/notification_service.dart';
 
 class OweItem {
   final String groupName;
@@ -32,8 +33,72 @@ class OweItem {
   });
 }
 
-class OweDetailsScreen extends ConsumerWidget {
+class OweDetailsScreen extends ConsumerStatefulWidget {
   const OweDetailsScreen({super.key});
+
+  @override
+  ConsumerState<OweDetailsScreen> createState() => _OweDetailsScreenState();
+}
+
+class _OweDetailsScreenState extends ConsumerState<OweDetailsScreen> {
+
+  Future<void> _sendPaidNotificationToPerson(OweItem item) async {
+    final authState = ref.read(authProvider);
+    final currentEmail = authState.email ?? '';
+    final currentName = authState.displayName ?? 'User';
+    
+    if (currentEmail.isEmpty) return;
+    
+    // Find recipient's UID
+    final toEmailIndex = item.group.memberEmails.indexWhere((e) => e.trim().toLowerCase() == item.toEmail.trim().toLowerCase());
+    final payeeUid = toEmailIndex != -1 && toEmailIndex < item.group.memberUids.length ? item.group.memberUids[toEmailIndex] : '';
+    
+    if (payeeUid.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error: Could not retrieve recipient UID.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Push notification to Firestore
+    try {
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'toUid': payeeUid,
+        'toEmail': item.toEmail.trim().toLowerCase(),
+        'fromName': currentName,
+        'fromEmail': currentEmail.trim().toLowerCase(),
+        'amount': item.amount,
+        'groupId': item.groupId,
+        'status': 'pending',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // Show local confirmation SnackBar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Paid notification successfully sent to ${item.toName}!'),
+            backgroundColor: AppColors.emeraldGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error sending notification: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sending notification: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
 
   List<OweItem> _calculateOweDetails(List<GroupModel> groups, List<TransactionModel> allTxs, String currentEmail) {
     if (currentEmail.isEmpty) return [];
@@ -530,27 +595,18 @@ class OweDetailsScreen extends ConsumerWidget {
                     OutlinedButton(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        Navigator.push(
-                          context,
-                          AppPageRoute(
-                            page: GroupDetailsScreen(
-                              groupId: item.groupId,
-                              initialGroup: item.group,
-                            ),
-                            type: RouteTransitionType.slideRight,
-                          ),
-                        );
+                        _sendPaidNotificationToPerson(item);
                       },
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: subColor,
-                        side: BorderSide(color: borderCol),
+                        foregroundColor: isDark ? AppColors.electricBlue : AppColors.primaryPurple,
+                        side: BorderSide(color: isDark ? AppColors.electricBlue : AppColors.primaryPurple),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: const EdgeInsets.symmetric(vertical: 15),
                       ),
                       child: Text(
-                        'Settle Manually (Go to Group)',
+                        'Trigger Notification to the Person',
                         style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
@@ -865,6 +921,7 @@ class OweDetailsScreen extends ConsumerWidget {
       uri = Uri.parse('upi://pay');
     }
 
+
     try {
       final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched) {
@@ -990,16 +1047,7 @@ class OweDetailsScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  AppPageRoute(
-                    page: GroupDetailsScreen(
-                      groupId: item.groupId,
-                      initialGroup: item.group,
-                    ),
-                    type: RouteTransitionType.slideRight,
-                  ),
-                );
+                _sendPaidNotificationToPerson(item);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryPurple,
@@ -1010,7 +1058,7 @@ class OweDetailsScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: Text(
-                'Settle Manually (Go to Group)',
+                'Trigger Notification to the Person',
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
@@ -1045,7 +1093,7 @@ class OweDetailsScreen extends ConsumerWidget {
 
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final groups = ref.watch(groupsProvider);
     final allTxs = ref.watch(transactionProvider);
     final authState = ref.watch(authProvider);

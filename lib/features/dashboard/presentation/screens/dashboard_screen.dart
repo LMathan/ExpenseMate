@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -11,6 +12,8 @@ import 'package:espenseai/core/storage/hive_helper.dart';
 import 'package:espenseai/core/services/biometric_service.dart';
 import 'package:espenseai/core/services/firestore_sync_service.dart';
 import 'package:espenseai/core/services/notification_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:espenseai/core/utils/app_page_route.dart';
 import 'package:espenseai/features/expense/presentation/screens/add_expense_screen.dart';
 import 'package:espenseai/features/expense/presentation/providers/expense_provider.dart';
@@ -43,6 +46,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   StreamSubscription? _transactionsSubscription;
   StreamSubscription? _profileSubscription;
   StreamSubscription? _widgetLinkSubscription;
+  StreamSubscription<QuerySnapshot>? _peerNotificationsSubscription;
+  DateTime? _lastPressedAt;
 
   final List<Widget> _tabs = [
     const HomeTab(),
@@ -135,6 +140,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _transactionsSubscription?.cancel();
     _profileSubscription?.cancel();
     _widgetLinkSubscription?.cancel();
+    _peerNotificationsSubscription?.cancel();
     super.dispose();
   }
 
@@ -301,6 +307,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           );
         }
       });
+      _listenForPeerNotifications();
     }
   }
 
@@ -321,6 +328,234 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     if (!hasSeenTour) {
       _showWalkthroughDialog();
     }
+  }
+
+  void _listenForPeerNotifications() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    _peerNotificationsSubscription?.cancel();
+    _peerNotificationsSubscription = FirebaseFirestore.instance
+        .collection('notifications')
+        .where('toUid', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .listen((snapshot) {
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final data = change.doc.data();
+          if (data != null) {
+            final docId = change.doc.id;
+            final fromName = data['fromName'] as String? ?? 'A person';
+            final amountNum = data['amount'] as num? ?? 0.0;
+            final amount = amountNum.toDouble();
+            final groupId = data['groupId'] as String? ?? '';
+            final fromEmail = data['fromEmail'] as String? ?? '';
+            
+            // Trigger local push notification for the receiver
+            try {
+              NotificationService().showInstantNotification(
+                'Payment Received Alert',
+                '$fromName paid ₹${amount.toStringAsFixed(0)} to you. Check and update the settle status.',
+              );
+            } catch (e) {
+              debugPrint('Error showing local notification: $e');
+            }
+
+            if (mounted) {
+              _showPeerNotificationPopup(docId, fromName, fromEmail, amount, groupId);
+            }
+          }
+        }
+      }
+    });
+  }
+
+  void _showPeerNotificationPopup(
+    String docId,
+    String fromName,
+    String fromEmail,
+    double amount,
+    String groupId,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : AppColors.textPrimaryLight;
+    final cardBg = isDark ? AppColors.cardDark : Colors.white;
+    final borderCol = isDark ? AppColors.borderDark : AppColors.borderLight;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: borderCol.withOpacity(0.5), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPurple.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.payments_rounded,
+                    color: AppColors.primaryPurple,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Payment Received Notification',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '$fromName paid ₹${amount.toStringAsFixed(2)} to you. Check and update the settle status.',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            await FirebaseFirestore.instance
+                                .collection('notifications')
+                                .doc(docId)
+                                .update({'status': 'dismissed'});
+                          } catch (e) {
+                            debugPrint('Error updating notification: $e');
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                          side: const BorderSide(color: Colors.redAccent),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          'Dismiss',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          
+                          // 1. Mark notification as confirmed
+                          try {
+                            await FirebaseFirestore.instance
+                                .collection('notifications')
+                                .doc(docId)
+                                .update({'status': 'confirmed'});
+                          } catch (e) {
+                            debugPrint('Error updating notification: $e');
+                          }
+
+                          // 2. Programmatically settle transaction in group
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user != null) {
+                            final allTxs = ref.read(transactionProvider);
+                            final myEmail = user.email?.trim().toLowerCase() ?? '';
+                            final senderEmail = fromEmail.trim().toLowerCase();
+
+                            final listTxs = allTxs.where((tx) =>
+                              tx.groupId == groupId &&
+                              !tx.isSettled &&
+                              (
+                                (tx.paidByEmail.trim().toLowerCase() == myEmail &&
+                                 tx.splitWith.map((e) => e.trim().toLowerCase()).contains(senderEmail))
+                                ||
+                                (tx.paidByEmail.trim().toLowerCase() == senderEmail &&
+                                 tx.splitWith.map((e) => e.trim().toLowerCase()).contains(myEmail))
+                              )
+                            ).toList();
+
+                            for (var tx in listTxs) {
+                              final list = List<String>.from(tx.settledWith);
+                              if (!list.contains(senderEmail)) {
+                                list.add(senderEmail);
+                              }
+                              if (!list.contains(myEmail)) {
+                                list.add(myEmail);
+                              }
+
+                              final splitWithEmails = tx.splitWith.map((e) => e.trim().toLowerCase()).toList();
+                              final allSettled = splitWithEmails.every((email) => list.contains(email));
+
+                              final updated = tx.copyWith(
+                                settledWith: list,
+                                isSettled: allSettled ? true : tx.isSettled,
+                              );
+                              await ref.read(transactionProvider.notifier).editTransaction(updated);
+                            }
+                          }
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Settle status successfully updated!'),
+                                backgroundColor: AppColors.emeraldGreen,
+                              ),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.emeraldGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Settle',
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showOnboardingProfileSetup() {
@@ -581,7 +816,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     final currentIndex = ref.watch(dashboardIndexProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: currentIndex == 0,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        if (currentIndex != 0) {
+          ref.read(dashboardIndexProvider.notifier).state = 0;
+          setState(() {});
+        }
+      },
+      child: Scaffold(
       backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
       appBar: currentIndex == 0
           ? null
@@ -666,6 +910,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             ),
           ),
         ],
+      ),
       ),
     );
   }

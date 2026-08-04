@@ -71,7 +71,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   void _checkRedirect() async {
-    await Future.delayed(const Duration(milliseconds: 3000));
+    await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
 
     // Check for available OTA updates (Android only)
